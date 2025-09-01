@@ -421,6 +421,8 @@ impl<'a> LineMutator<'a> for Line<'a> {
                     let offset_start = overlap_start - span_start;
                     let offset_end = overlap_end - span_start;
 
+                    let style = span.style.patch(style);
+
                     if offset_start == 0 && offset_end == span_len {
                         // Entire span is inside range, style whole span.
                         new_spans.push(Span::styled(span.content, style));
