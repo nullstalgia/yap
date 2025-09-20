@@ -456,7 +456,7 @@ impl Buffer {
                     .saturating_sub(1) // space between bytes
                 ;
 
-                if bytes_per_line != 0 && bytes_per_line % 8 == 0 {
+                if bytes_per_line != 0 && bytes_per_line.is_multiple_of(8) {
                     if remaining_width < 4 {
                         break;
                     }
@@ -747,7 +747,7 @@ fn render_ascii(
             .ceil() as u16,
     );
 
-    let mut style_bool = scroll % 2 != 0;
+    let mut style_bool = !scroll.is_multiple_of(2);
 
     for line in 0..total_lines {
         style_bool.flip();
@@ -796,7 +796,7 @@ fn byte_markers(bytes_per_line: u8, area: Rect, buf: &mut ratatui::prelude::Buff
 
     let mut spans = Vec::with_capacity(bytes_per_line as usize * 2 - 1);
     for i in 0..bytes_per_line {
-        if i != 0 && i % 8 == 0 {
+        if i != 0 && i.is_multiple_of(8) {
             // Extra space between 8th and 9th column for readability
             spans.push(ratatui::text::Span::raw("  "));
         } else if i != 0 {
@@ -841,7 +841,7 @@ fn render_offsets(
     // Note: Y coordinate of `area` should be the top-most row to render.
     //       This draws vertically downward, one offset per line.
 
-    let mut style_bool = scroll % 2 != 0;
+    let mut style_bool = !scroll.is_multiple_of(2);
 
     let styles = (Style::new().light_yellow(), Style::new().yellow());
 
@@ -903,7 +903,7 @@ fn render_bytes(
             .ceil() as u16,
     );
 
-    let mut style_bool = scroll % 2 != 0;
+    let mut style_bool = !scroll.is_multiple_of(2);
 
     for line in 0..total_lines {
         style_bool.flip();
@@ -914,7 +914,7 @@ fn render_bytes(
         for (i, byte) in line_bytes.iter().enumerate() {
             if i != 0 {
                 // Single space between bytes, and extra space after every 8 bytes (except at start)
-                if i % 8 == 0 {
+                if i.is_multiple_of(8) {
                     spans.push(Span::raw("  "));
                 } else {
                     spans.push(Span::raw(" "));

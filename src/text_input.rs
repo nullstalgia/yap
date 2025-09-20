@@ -4,7 +4,6 @@ use arboard::Clipboard;
 use crokey::crossterm::event::{Event, KeyEvent};
 use crossterm::event::KeyCode;
 use itertools::Itertools;
-use num_integer::Integer;
 use regex::Regex;
 use tracing::{error, warn};
 use tui_input::{Input, StateChanged, backend::crossterm::EventHandler};
@@ -181,7 +180,7 @@ impl TextInput {
             self.replace_input_with_bytes(&input_bytes);
         } else {
             // true -> false
-            let value = if self.value().len().is_even() {
+            let value = if self.value().len().is_multiple_of(2) {
                 self.value()
             } else {
                 let len = self.value().len();
@@ -256,7 +255,7 @@ impl TextInput {
         self.clear_history_selection();
         let value_len = self.value().len();
         if self.bytes_input {
-            let remove_amount = 1 + value_len.is_even() as usize;
+            let remove_amount = 1 + value_len.is_multiple_of(2) as usize;
             self.input_box = self.value()[..value_len - remove_amount].to_owned().into();
         } else if let Some(mat) = self.last_word_regex.find(self.value()) {
             let new_len = mat.start();

@@ -13,7 +13,6 @@ use crokey::{KeyCombination, key};
 use crossbeam::channel::{Receiver, Select, Sender, TrySendError};
 use enum_rotate::EnumRotate;
 
-use num_integer::Integer;
 use ratatui::{
     Frame, Terminal,
     crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
@@ -2740,7 +2739,7 @@ impl App {
 
                 if self.text_input.byte_entry_active() {
                     // Odd-length inputs can't be parsed to be sent.
-                    if user_input.len().is_odd() {
+                    if !user_input.len().is_multiple_of(2) {
                         self.trigger_send_failed_visual()?;
                         return Ok(());
                     }
@@ -4114,7 +4113,7 @@ impl App {
                     .borders(Borders::TOP)
                     .border_style(Style::from(block_color));
                 frame.render_widget(
-                    Line::raw("Powered by esp-rs/espflash v4.0.1!")
+                    Line::raw("Powered by esp-rs/espflash v4.1.0!")
                         .all_spans_styled(Color::DarkGray.into())
                         .centered(),
                     line_area,

@@ -893,13 +893,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8d162beedaa69905488a8da94f5ac3edb4dd4788b732fadb7bd120b2625c1976"
 dependencies = [
  "data-encoding",
- "syn 2.0.104",
+ "syn 1.0.109",
 ]
 
 [[package]]
 name = "defmt-decoder"
 version = "1.0.0"
-source = "git+https://github.com/knurling-rs/defmt?rev=d52b9908c175497d46fc527f4f8dfd6278744f09#d52b9908c175497d46fc527f4f8dfd6278744f09"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "87b563d700380314b45fa0ddfbf2ea998a80c64b7d88ab42b0b1fba774c4da66"
 dependencies = [
  "alterable_logger",
  "anyhow",
@@ -912,7 +913,7 @@ dependencies = [
  "gimli 0.29.0",
  "log",
  "nom 7.1.3",
- "object 0.36.7",
+ "object 0.35.0",
  "regex",
  "ryu",
  "serde",
@@ -923,7 +924,8 @@ dependencies = [
 [[package]]
 name = "defmt-json-schema"
 version = "0.1.0"
-source = "git+https://github.com/knurling-rs/defmt?rev=d52b9908c175497d46fc527f4f8dfd6278744f09#d52b9908c175497d46fc527f4f8dfd6278744f09"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "96b04d228e57a61cf385d86bc8980bb41b47c6fc0eace90592668df97b2dad6a"
 dependencies = [
  "log",
  "serde",
@@ -932,7 +934,8 @@ dependencies = [
 [[package]]
 name = "defmt-parser"
 version = "1.0.0"
-source = "git+https://github.com/knurling-rs/defmt?rev=d52b9908c175497d46fc527f4f8dfd6278744f09#d52b9908c175497d46fc527f4f8dfd6278744f09"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "10d60334b3b2e7c9d91ef8150abfb6fa4c1c39ebbcf4a81c2e346aad939fee3e"
 dependencies = [
  "thiserror 2.0.12",
 ]
@@ -1356,9 +1359,9 @@ dependencies = [
 
 [[package]]
 name = "espflash"
-version = "4.0.1"
+version = "4.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cae69927fa129d5bf119dc39fe984de95851f7ef918d06d14df95f8a74c59cda"
+checksum = "0c63d954132db04edb660af5a554a46f909f7b172d7601b4af3fea994b926821"
 dependencies = [
  "base64",
  "bitflags 2.9.1",
@@ -1369,6 +1372,7 @@ dependencies = [
  "log",
  "md-5",
  "miette",
+ "nix 0.30.1",
  "object 0.37.1",
  "regex",
  "serde",
@@ -1377,7 +1381,7 @@ dependencies = [
  "slip-codec",
  "strum 0.27.2",
  "thiserror 2.0.12",
- "toml 0.8.23",
+ "toml 0.9.4",
 ]
 
 [[package]]
@@ -2438,6 +2442,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "nix"
+version = "0.30.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "74523f3a35e05aba87a1d978330aef40f67b0304ac79c1c00b294c9830543db6"
+dependencies = [
+ "bitflags 2.9.1",
+ "cfg-if",
+ "cfg_aliases",
+ "libc",
+]
+
+[[package]]
 name = "no_std_io2"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2688,6 +2704,15 @@ dependencies = [
  "bitflags 2.9.1",
  "objc2",
  "objc2-foundation",
+]
+
+[[package]]
+name = "object"
+version = "0.35.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b8ec7ab813848ba4522158d5517a6093db1ded27575b070f4177b8d12b41db5e"
+dependencies = [
+ "memchr",
 ]
 
 [[package]]
@@ -3731,9 +3756,9 @@ dependencies = [
 
 [[package]]
 name = "serialport"
-version = "4.7.2"
+version = "4.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cdb0bc984f6af6ef8bab54e6cf2071579ee75b9286aa9f2319a0d220c28b0a2b"
+checksum = "2acaf3f973e8616d7ceac415f53fc60e190b2a686fbcf8d27d0256c741c5007b"
 dependencies = [
  "bitflags 2.9.1",
  "cfg-if",
@@ -3742,7 +3767,7 @@ dependencies = [
  "io-kit-sys",
  "libudev",
  "mach2",
- "nix",
+ "nix 0.26.4",
  "scopeguard",
  "serde",
  "unescaper",
@@ -4312,10 +4337,13 @@ version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "41ae868b5a0f67631c14589f7e250c1ea2c574ee5ba21c6c8dd4b1485705a5a1"
 dependencies = [
+ "indexmap 2.10.0",
  "serde",
  "serde_spanned 1.0.0",
  "toml_datetime 0.7.0",
+ "toml_parser",
  "toml_writer",
+ "winnow 0.7.13",
 ]
 
 [[package]]
@@ -4358,7 +4386,16 @@ dependencies = [
  "serde_spanned 0.6.9",
  "toml_datetime 0.6.11",
  "toml_write",
- "winnow 0.7.12",
+ "winnow 0.7.13",
+]
+
+[[package]]
+name = "toml_parser"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4cf893c33be71572e0e9aa6dd15e6677937abd686b066eac3f8cd3531688a627"
+dependencies = [
+ "winnow 0.7.13",
 ]
 
 [[package]]
@@ -5332,9 +5369,9 @@ dependencies = [
 
 [[package]]
 name = "winnow"
-version = "0.7.12"
+version = "0.7.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3edebf492c8125044983378ecb5766203ad3b4c2f7a922bd7dd207f6d443e95"
+checksum = "21a0236b59786fed61e2a80582dd500fe61f18b5dca67a4a067d0bc9039339cf"
 dependencies = [
  "memchr",
 ]
@@ -5426,7 +5463,7 @@ dependencies = [
 
 [[package]]
 name = "yap"
-version = "0.1.0"
+version = "0.1.1-pre.0"
 dependencies = [
  "ansi-to-tui",
  "arboard",
@@ -5463,7 +5500,6 @@ dependencies = [
  "native-dialog",
  "nom 7.1.3",
  "notify",
- "num-integer",
  "opener",
  "openssl",
  "rand 0.9.2",
