@@ -49,7 +49,8 @@ use crate::{
         DeserializedUsb, PrintablePortInfo, ReconnectType, Reconnections, SerialDisconnectReason,
         SerialEvent,
         handle::{BlockingCommandError, SerialHandle},
-        worker::{InnerPortStatus, MOCK_PORT_NAME},
+        port_status::InnerPortStatus,
+        worker::MOCK_PORT_NAME,
     },
     settings::{Behavior, PortSettings, Rendering, Settings},
     text_input::TextInput,
@@ -718,6 +719,12 @@ impl App {
             Event::Crossterm(CrosstermEvent::RightClick) => {}
 
             Event::Serial(SerialEvent::Connected(reconnect)) => {
+                // Sync up the per-second tick for the "connected for" timer.
+                self.carousel.add_repeating(
+                    "PerSecond",
+                    Tick::PerSecond,
+                    Duration::from_secs(1),
+                )?;
                 if let Some(reconnect_type) = &reconnect {
                     info!("Reconnected!");
                     let text = match reconnect_type {
@@ -738,13 +745,13 @@ impl App {
                 {
                     let port_status_guard = self.serial.port_status.load();
 
-                    if port_status_guard.current_port.is_none() {
+                    if port_status_guard.current_port().is_none() {
                         error!("Was told about a port connection but no current port exists!");
                         panic!("Was told about a port connection but no current port exists!");
                     }
 
                     #[cfg(feature = "logging")]
-                    if let Some(current_port) = &port_status_guard.current_port {
+                    if let Some(current_port) = port_status_guard.current_port() {
                         self.buffer
                             .log_handle
                             .log_port_connected(current_port.to_owned(), reconnect.clone())?;
@@ -850,7 +857,7 @@ impl App {
                         return Ok(());
                     }
 
-                    let port_status = &self.serial.port_status.load().inner;
+                    let port_status = &self.serial.port_status.load().status();
 
                     let reconnections_allowed =
                         self.serial.port_settings.load().reconnections.allowed();
@@ -1459,7 +1466,7 @@ impl App {
         Ok(())
     }
     fn send_crossterm_event_to_port(&mut self, key_event: KeyEvent) -> Result<()> {
-        let serial_healthy = self.serial.port_status.load().inner.is_connected();
+        let serial_healthy = self.serial.port_status.load().status().is_connected();
 
         if let Ok(event) =
             terminput_crossterm::to_terminput(crossterm::event::Event::Key(key_event))
@@ -1492,7 +1499,7 @@ impl App {
         if actions.len() == 1
             && let Some(action) = actions.first()
         {
-            let port_status = &self.serial.port_status.load().inner;
+            let port_status = &self.serial.port_status.load().status();
 
             if action.requires_connection() && !port_status.is_connected() {
                 self.notifs.notify_str(
@@ -1581,11 +1588,11 @@ impl App {
         }
 
         // if action.requires_port_connection() {
-        let port_status_guard = self.serial.port_status.load().inner;
+        let port_status_guard = self.serial.port_status.load().status();
         match port_status_guard {
-            InnerPortStatus::Connected => (),
+            InnerPortStatus::Connected { .. } => (),
             #[cfg(feature = "espflash")]
-            InnerPortStatus::LentOut => {
+            InnerPortStatus::LentOut { .. } => {
                 self.carousel.add_oneshot(
                     "ActionQueue",
                     Tick::Action,
@@ -1874,7 +1881,7 @@ impl App {
             #[cfg(feature = "logging")]
             A::Logging(LoggingAction::Sync) => {
                 let port_status_guard = self.serial.port_status.load();
-                let Some(_) = &port_status_guard.current_port else {
+                let Some(_) = port_status_guard.current_port() else {
                     self.notifs.notify_str(
                         "Not (previously) connected to port? Unable to sync log.",
                         Color::Yellow,
@@ -1983,8 +1990,8 @@ impl App {
         // If user broke the connection intentionally, easy check
         self.user_broke_connection ||
              // Otherwise, only show if we're not connected or lending the port to espflash
-             (!port_status_guard.inner.is_connected()
-                && !port_status_guard.inner.is_lent_out()
+             (!port_status_guard.status().is_connected()
+                && !port_status_guard.status().is_lent_out()
                 // and if auto-reconnections is disabled.
                 // (when auto-reconns. are enabled, the normal Disconnect prompt
                 // is supposed to show to act as a pause for auto-reconnections)
@@ -2386,7 +2393,7 @@ impl App {
         }
     }
     fn enter_pressed(&mut self, ctrl_pressed: bool, shift_pressed: bool) -> Result<()> {
-        let serial_healthy = self.serial.port_status.load().inner.is_connected();
+        let serial_healthy = self.serial.port_status.load().status().is_connected();
         let popup_was_some = self.popup.is_some();
         // debug!("{:?}", self.menu);
         match &self.popup {
@@ -3216,7 +3223,7 @@ impl App {
                 )
             }
             Popup::DisconnectPrompt => {
-                let port_state = { self.serial.port_status.load().inner };
+                let port_state = { self.serial.port_status.load().status() };
                 let reconns_paused = if self.settings.serial.reconnections.allowed()
                     && port_state.is_premature_disconnect()
                 {
@@ -4251,7 +4258,7 @@ impl App {
         let popup_shown = self.popup.is_some();
         let [terminal_area, line_area, whole_input_area] = vertical![*=1, ==1, ==1].areas(area);
         let [input_symbol_area, input_area] = horizontal![==1, *=1].areas(whole_input_area);
-
+        let dark_gray = Style::new().dark_gray();
         // let start = Instant::now();
         if self.settings.rendering.hex_view {
             self.buffer.render_hex(terminal_area, frame.buffer_mut());
@@ -4261,11 +4268,71 @@ impl App {
         // debug!("1: {:?}", start.elapsed());
         // let start = Instant::now();
 
+        // TODO toggle and layering options
+        let mut render_connection_timer =
+            |duration_opt: Option<Duration>, style: Style, lent_out_time: bool| {
+                let conn_stopwatch_string: Cow<'_, str> = if let Some(duration) = duration_opt {
+                    let secs = duration.as_secs();
+                    let day = secs / 86400;
+                    let hour = (secs % 86400) / 3600;
+                    let min = (secs % 3600) / 60;
+                    let sec = secs % 60;
+
+                    let output = if day > 0 {
+                        format!("{day:02}:{hour:02}:{min:02}:{sec:02}")
+                    } else {
+                        format!("{hour:02}:{min:02}:{sec:02}")
+                    };
+
+                    let output = if lent_out_time {
+                        format!("({output})")
+                    } else {
+                        output
+                    };
+
+                    output.into()
+                } else {
+                    "XX:XX:XX".into()
+                };
+
+                let [top_line] = vertical![==1].areas(area.inner(Margin {
+                    horizontal: 1,
+                    vertical: lent_out_time as u16,
+                }));
+
+                let line = Line::from(Span::styled(conn_stopwatch_string, style)).right_aligned();
+
+                frame.render_widget(line, top_line);
+            };
+
         let (port_state, serial_signals, port_text) = {
             let port_status_guard = self.serial.port_status.load();
-            let port_state = port_status_guard.inner;
+            let port_state = port_status_guard.status();
 
-            let port_text = match &port_status_guard.current_port {
+            match port_state {
+                InnerPortStatus::Connected { connected_at } => {
+                    render_connection_timer(Some(connected_at.elapsed()), dark_gray, false)
+                }
+                #[cfg(feature = "espflash")]
+                InnerPortStatus::LentOut {
+                    initial_connection_at,
+                    lent_out_at,
+                } => {
+                    render_connection_timer(
+                        Some(initial_connection_at.elapsed()),
+                        dark_gray,
+                        false,
+                    );
+                    render_connection_timer(
+                        Some(lent_out_at.elapsed()),
+                        Color::Yellow.into(),
+                        true,
+                    );
+                }
+                _ => render_connection_timer(None, dark_gray, false),
+            }
+
+            let port_text = match &port_status_guard.current_port() {
                 Some(port_info) => {
                     if port_state.is_connected() || port_state.is_lent_out() {
                         let baud_rate = self.serial.port_settings.load().baud_rate;
@@ -4282,7 +4349,7 @@ impl App {
                 }
             };
 
-            (port_state, port_status_guard.signals.clone(), port_text)
+            (port_state, port_status_guard.signals().clone(), port_text)
         };
 
         repeating_pattern_widget(frame, line_area, self.repeating_line_flip, port_state);
@@ -4413,7 +4480,7 @@ impl App {
                         .collect(),
                 )
             };
-            let dark_gray = Style::new().dark_gray();
+
             let line = line![span!(dark_gray; "Last sent: "), span!(dark_gray; value)];
 
             frame.render_widget(line, whole_input_area);
@@ -5085,9 +5152,9 @@ pub fn repeating_pattern_widget(
 
     let pattern_widget = ratatui::widgets::Paragraph::new(pattern);
     let pattern_widget = match port_state {
-        InnerPortStatus::Connected => pattern_widget.green(),
+        InnerPortStatus::Connected { .. } => pattern_widget.green(),
         #[cfg(feature = "espflash")]
-        InnerPortStatus::LentOut => pattern_widget.yellow(),
+        InnerPortStatus::LentOut { .. } => pattern_widget.yellow(),
         InnerPortStatus::PrematureDisconnect => pattern_widget.red(),
         InnerPortStatus::Idle => pattern_widget.red(),
     };

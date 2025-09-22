@@ -9,14 +9,14 @@ use tracing::{debug, error};
 
 use crate::{
     app::Event,
-    serial::{Reconnections, worker::WorkerError},
+    serial::{Reconnections, port_status::PortStatus, worker::WorkerError},
     settings::{Ignored, PortSettings},
 };
 
 #[cfg(feature = "espflash")]
 use super::esp::EspCommand;
 
-use super::worker::{PortStatus, SerialWorker};
+use super::worker::SerialWorker;
 
 #[derive(Debug)]
 pub enum SerialWorkerCommand {

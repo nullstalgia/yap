@@ -13,13 +13,13 @@ use virtual_serialport::VirtualPort;
 
 use crate::{
     app::{Event, Tick},
-    serial::{SerialDisconnectReason, SerialEvent},
+    serial::{SerialDisconnectReason, SerialEvent, port_status::PortStatus},
     settings::{Ignored, PortSettings},
     traits::ToggleBool,
 };
 
 use super::{
-    ReconnectType, Reconnections, SerialSignals,
+    ReconnectType, Reconnections,
     handle::{PortCommand, SerialWorkerCommand},
 };
 
@@ -263,8 +263,7 @@ impl SerialWorker {
 
         let last_status = self.shared_status.load().as_ref().clone();
         let known_port_ref = last_status
-            .current_port
-            .as_ref()
+            .current_port()
             .expect("shouldn't have been connected to port without data saved");
 
         // Check if the port is still seen by the system
@@ -562,8 +561,7 @@ impl SerialWorker {
 
         let port_guard = self.shared_status.load();
         let desired_port = port_guard
-            .current_port
-            .as_ref()
+            .current_port()
             .expect("shouldn't have been connected to port without data saved");
 
         // Checking for a perfect match
@@ -717,9 +715,13 @@ impl SerialWorker {
         port.set_timeout(Duration::from_millis(100))?;
         port.write_request_to_send(port_status.signals.rts)?;
 
-        port_status.signals.update_slave_signals(port)?;
-        port_status.current_port = Some(port_info.to_owned());
-        port_status.inner = InnerPortStatus::Connected;
+        port_status = port_status.into_connected(
+            port,
+            port_info.clone(),
+            Instant::now(),
+            settings.as_ref(),
+        )?;
+
         self.shared_status.store(Arc::new(port_status));
 
         info!(
@@ -790,7 +792,7 @@ impl SerialWorker {
         let mut status: PortStatus = self.shared_status.load().as_ref().clone();
 
         let usb_port_info = {
-            match &status.current_port {
+            match status.current_port() {
                 None => unreachable!("esp command shouldn't be sent with no port"),
                 Some(info) => match &info.port_type {
                     SerialPortType::UsbPort(e) => e.clone(),
@@ -805,7 +807,7 @@ impl SerialWorker {
             }
         };
 
-        status.inner = InnerPortStatus::LentOut;
+        status = status.into_lent_out(Instant::now());
 
         self.shared_status.store(Arc::new(status.clone()));
 
@@ -1069,14 +1071,13 @@ impl SerialWorker {
         // Re-applying our expected settings.
         // TODO consolidate with connect fn?
         port.set_timeout(Duration::from_millis(100))?;
-        let baud_rate = self.shared_settings.load().baud_rate;
+        let settings = self.shared_settings.load();
+        let baud_rate = settings.baud_rate;
         port.set_baud_rate(baud_rate)?;
-        port.write_data_terminal_ready(status.signals.dtr)?;
-        port.write_request_to_send(status.signals.rts)?;
+
+        status = status.returning_lent_port(&mut port, settings.as_ref())?;
 
         self.port.return_native(port);
-
-        status.inner = InnerPortStatus::Connected;
 
         self.shared_status.store(Arc::new(status));
 
@@ -1137,11 +1138,11 @@ pub(crate) enum WorkerError {
     HandleDropped,
 
     #[cfg(feature = "espflash")]
-    #[error("espflash error:")]
+    #[error("espflash error: {0}")]
     EspFlash(#[from] espflash::Error),
 
     #[cfg(feature = "espflash")]
-    #[error("file error")]
+    #[error("file error: {0}")]
     File(#[from] std::io::Error),
 
     #[cfg(feature = "espflash")]
@@ -1160,92 +1161,6 @@ pub(crate) enum WorkerError {
 impl<T> From<crossbeam::channel::SendError<T>> for WorkerError {
     fn from(_: crossbeam::channel::SendError<T>) -> Self {
         Self::FailedSend
-    }
-}
-
-// This status struct leaves a bit to be desired
-// especially in terms of the signals and their initial states
-// (between connections and app start)
-// maybe something better will come to me.
-
-#[derive(Debug, Clone, Default)]
-/// Port status, shared with the main+UI thread.
-pub struct PortStatus {
-    /// The actual state of the port.
-    pub inner: InnerPortStatus,
-
-    /// Some: contains currently/last-connected port.
-    ///
-    /// Also used as the "desired device" to reconnect to if the port disconnects unexpectedly.
-    ///
-    /// None: Idle, not yet connected or disconnected intentionally.
-    pub current_port: Option<SerialPortInfo>,
-
-    /// The current state of the auxillary RS232 signals.
-    pub signals: SerialSignals,
-}
-
-impl PortStatus {
-    pub fn new_idle(settings: &PortSettings) -> Self {
-        Self {
-            signals: SerialSignals {
-                dtr: settings.dtr_on_connect,
-                rts: settings.rts_on_connect,
-                ..Default::default()
-            },
-            ..Default::default()
-        }
-    }
-    /// Used when a port disconnects without the user's stated intent to do so.
-    fn into_unhealthy(self) -> Self {
-        Self {
-            inner: InnerPortStatus::PrematureDisconnect,
-            ..self
-        }
-    }
-    /// Used when the user chooses to disconnect from the serial port
-    fn into_idle(self, settings: &PortSettings) -> Self {
-        Self {
-            inner: InnerPortStatus::Idle,
-            current_port: None,
-            signals: SerialSignals {
-                dtr: settings.dtr_on_connect,
-                rts: settings.rts_on_connect,
-                ..Default::default()
-            },
-        }
-    }
-
-    // fn to_connected(
-    //     self,
-    //     port: SerialPortInfo, // , baud_rate: u32, signals: SerialSignals
-    // ) -> Self {
-    //     Self {
-    //         healthy: true,
-    //         current_port: Some(port),
-    //         ..self
-    //     }
-    // }
-}
-
-#[derive(Debug, Clone, Copy, Default, strum::EnumIs)]
-pub enum InnerPortStatus {
-    #[default]
-    /// No connection has been made.
-    Idle,
-    /// Port was lost unexpectedly.
-    PrematureDisconnect,
-    #[cfg(feature = "espflash")]
-    /// Port is temporarily owned by espflash.
-    LentOut,
-    /// Port is owned by us and we can read/write to it.
-    Connected,
-}
-
-#[cfg(not(feature = "espflash"))]
-impl InnerPortStatus {
-    pub fn is_lent_out(&self) -> bool {
-        false
     }
 }
 

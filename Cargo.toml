@@ -62,7 +62,7 @@ enum-rotate = "0.1.1"
 espflash = { version = "4.1.0", optional = true, default-features = false, features = [
     "serialport",
 ] }
-# espflash = { path = "../espflash/espflash", optional = true, features = ["serialport"] }
+# espflash = { path = "../espflash/espflash", optional = true, features = ["serialport"], default-features = false }
 # espflash = { git = "https://github.com/nullstalgia/espflash", branch = "public_verify_and_skip", optional = true, default-features = false, features = [
 #     "serialport",
 # ] }

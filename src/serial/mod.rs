@@ -6,6 +6,7 @@ mod ignorable;
 pub use ignorable::*;
 
 pub mod handle;
+pub mod port_status;
 pub mod worker;
 
 #[cfg(feature = "espflash")]
