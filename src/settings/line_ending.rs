@@ -147,15 +147,6 @@ impl FromStr for TxLineEnding {
     }
 }
 
-// Since `serde_inline_derive` can't handle conditionally compiled fields,
-// we just make a dummy that won't be included later anyway.
-#[cfg(not(feature = "macros"))]
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[allow(dead_code)]
-pub enum MacroTxLineEnding {
-    InheritTx,
-}
-
 #[cfg(feature = "macros")]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MacroTxLineEnding {
