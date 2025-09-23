@@ -251,6 +251,7 @@ impl SerialWorker {
     }
 
     fn unhealthy_disconnection(&mut self) {
+        let now = Instant::now();
         // This used to be an assertion but if the main+UI thread accidentally sends a command
         // when the port is missing (it's supposed to check for port health, but that introduces
         // time-of-check/time-of-use race conditions, so we'll just gracefully disconnect),
@@ -287,7 +288,7 @@ impl SerialWorker {
             last_status
                 // Ensure we keep around the old SerialPortInfo to use
                 // as a reference for reconnections!
-                .into_unhealthy()
+                .into_unhealthy(now)
         };
         self.shared_status.store(Arc::new(disconnected_status));
         // Disconnection Event TX should be done by caller.
@@ -364,8 +365,9 @@ impl SerialWorker {
 
                 let previous_status = { self.shared_status.load().as_ref().clone() };
 
-                self.shared_status
-                    .store(Arc::new(previous_status.into_idle(&settings)));
+                self.shared_status.store(Arc::new(
+                    previous_status.into_idle(Instant::now(), &settings),
+                ));
                 self.port.drop();
                 self.event_tx
                     .send(SerialDisconnectReason::Intentional.into())?;

@@ -1602,7 +1602,7 @@ impl App {
             }
             // Currently this runs even for action chains that don't need the port,
             // but that's such a niche/rare thing right now, so meh.
-            InnerPortStatus::Idle | InnerPortStatus::PrematureDisconnect => {
+            InnerPortStatus::Idle { .. } | InnerPortStatus::PrematureDisconnect { .. } => {
                 // InnerPortStatus::Idle | InnerPortStatus::PrematureDisconnect if action.requires_connection() => {
                 let text = if self.action_queue.len() == 1 {
                     "Port isn't ready! Not running action...".into()
@@ -4259,78 +4259,85 @@ impl App {
         let [terminal_area, line_area, whole_input_area] = vertical![*=1, ==1, ==1].areas(area);
         let [input_symbol_area, input_area] = horizontal![==1, *=1].areas(whole_input_area);
         let dark_gray = Style::new().dark_gray();
-        // let start = Instant::now();
-        if self.settings.rendering.hex_view {
-            self.buffer.render_hex(terminal_area, frame.buffer_mut());
-        } else {
-            frame.render_widget(&mut self.buffer, terminal_area);
-        }
-        // debug!("1: {:?}", start.elapsed());
-        // let start = Instant::now();
 
-        // TODO toggle and layering options
-        let mut render_connection_timer =
-            |duration_opt: Option<Duration>, style: Style, lent_out_time: bool| {
-                let conn_stopwatch_string: Cow<'_, str> = if let Some(duration) = duration_opt {
-                    let secs = duration.as_secs();
-                    let day = secs / 86400;
-                    let hour = (secs % 86400) / 3600;
-                    let min = (secs % 3600) / 60;
-                    let sec = secs % 60;
+        fn render_connection_timer(
+            frame: &mut Frame,
+            area: Rect,
+            duration_opt: Option<Duration>,
+            style: Style,
+            lent_out_time: bool,
+        ) {
+            let conn_stopwatch_string: Cow<'_, str> = if let Some(duration) = duration_opt {
+                let secs = duration.as_secs();
+                let day = secs / 86400;
+                let hour = (secs % 86400) / 3600;
+                let min = (secs % 3600) / 60;
+                let sec = secs % 60;
 
-                    let output = if day > 0 {
-                        format!("{day:02}:{hour:02}:{min:02}:{sec:02}")
-                    } else {
-                        format!("{hour:02}:{min:02}:{sec:02}")
-                    };
-
-                    let output = if lent_out_time {
-                        format!("({output})")
-                    } else {
-                        output
-                    };
-
-                    output.into()
+                let output = if day > 0 {
+                    format!("{day:02}:{hour:02}:{min:02}:{sec:02}")
                 } else {
-                    "XX:XX:XX".into()
+                    format!("{hour:02}:{min:02}:{sec:02}")
                 };
 
-                let [top_line] = vertical![==1].areas(area.inner(Margin {
-                    horizontal: 1,
-                    vertical: lent_out_time as u16,
-                }));
+                let output = if lent_out_time {
+                    format!("({output})")
+                } else {
+                    output
+                };
 
-                let line = Line::from(Span::styled(conn_stopwatch_string, style)).right_aligned();
-
-                frame.render_widget(line, top_line);
+                output.into()
+            } else {
+                "XX:XX:XX".into()
             };
 
-        let (port_state, serial_signals, port_text) = {
-            let port_status_guard = self.serial.port_status.load();
-            let port_state = port_status_guard.status();
+            let [top_line] = vertical![==1].areas(area.inner(Margin {
+                horizontal: 1,
+                vertical: lent_out_time as u16,
+            }));
 
+            let line = Line::from(Span::styled(conn_stopwatch_string, style)).right_aligned();
+
+            frame.render_widget(line, top_line);
+        }
+
+        fn render_connection_timers(frame: &mut Frame, area: Rect, port_state: &InnerPortStatus) {
+            let dark_gray = Style::new().dark_gray();
             match port_state {
-                InnerPortStatus::Connected { connected_at } => {
-                    render_connection_timer(Some(connected_at.elapsed()), dark_gray, false)
-                }
+                InnerPortStatus::Connected { connected_at } => render_connection_timer(
+                    frame,
+                    area,
+                    Some(connected_at.elapsed()),
+                    dark_gray,
+                    false,
+                ),
                 #[cfg(feature = "espflash")]
                 InnerPortStatus::LentOut {
-                    initial_connection_at,
+                    connected_at,
                     lent_out_at,
                 } => {
                     render_connection_timer(
-                        Some(initial_connection_at.elapsed()),
+                        frame,
+                        area,
+                        Some(connected_at.elapsed()),
                         dark_gray,
                         false,
                     );
                     render_connection_timer(
+                        frame,
+                        area,
                         Some(lent_out_at.elapsed()),
                         Color::Yellow.into(),
                         true,
                     );
                 }
-                _ => render_connection_timer(None, dark_gray, false),
+                _ => render_connection_timer(frame, area, None, dark_gray, false),
             }
+        }
+
+        let (port_status, serial_signals, port_text) = {
+            let port_status_guard = self.serial.port_status.load();
+            let port_state = port_status_guard.status();
 
             let port_text = match &port_status_guard.current_port() {
                 Some(port_info) => {
@@ -4352,7 +4359,44 @@ impl App {
             (port_state, port_status_guard.signals().clone(), port_text)
         };
 
-        repeating_pattern_widget(frame, line_area, self.repeating_line_flip, port_state);
+        let time_shown = self.settings.rendering.show_connection_time;
+
+        // const SHOW_ABOVE_TIME: Duration = Duration::from_secs(30);
+
+        // let time_above_text = match (self.settings.rendering.show_connection_time, port_status) {
+        //     (Ct::BelowText, InnerPortStatus::Connected { connected_at })
+        //         if connected_at.elapsed() <= SHOW_ABOVE_TIME =>
+        //     {
+        //         true
+        //     }
+        //     (Ct::BelowText, InnerPortStatus::LentOut { connected_at, .. })
+        //         if connected_at.elapsed() <= SHOW_ABOVE_TIME =>
+        //     {
+        //         true
+        //     }
+        //     (Ct::BelowText, InnerPortStatus::PrematureDisconnect { disconnected_at })
+        //         if disconnected_at.elapsed() <= SHOW_ABOVE_TIME =>
+        //     {
+        //         true
+        //     }
+        //     (Ct::AboveText, _) => true,
+        //     (_, _) => false,
+        // };
+        // if time_shown && !time_above_text {
+        //     render_connection_timers(frame, area, &port_status);
+        // }
+
+        if self.settings.rendering.hex_view {
+            self.buffer.render_hex(terminal_area, frame.buffer_mut());
+        } else {
+            frame.render_widget(&mut self.buffer, terminal_area);
+        }
+
+        if time_shown {
+            render_connection_timers(frame, area, &port_status);
+        }
+
+        repeating_pattern_widget(frame, line_area, self.repeating_line_flip, port_status);
 
         let widget_margin: u16 = if area.width >= 100 { 3 } else { 0 };
 
@@ -4453,7 +4497,7 @@ impl App {
         };
 
         if self.settings.behavior.pseudo_shell {
-            let input_symbol_style = if port_state.is_connected() {
+            let input_symbol_style = if port_status.is_connected() {
                 input_style.not_reversed().green()
             } else {
                 input_style.red()
@@ -5155,8 +5199,8 @@ pub fn repeating_pattern_widget(
         InnerPortStatus::Connected { .. } => pattern_widget.green(),
         #[cfg(feature = "espflash")]
         InnerPortStatus::LentOut { .. } => pattern_widget.yellow(),
-        InnerPortStatus::PrematureDisconnect => pattern_widget.red(),
-        InnerPortStatus::Idle => pattern_widget.red(),
+        InnerPortStatus::PrematureDisconnect { .. } => pattern_widget.red(),
+        InnerPortStatus::Idle { .. } => pattern_widget.red(),
     };
     frame.render_widget(pattern_widget, area);
 }

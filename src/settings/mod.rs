@@ -158,7 +158,21 @@ pub struct Rendering {
     #[table(values = HexHighlightStyle::VARIANTS)]
     /// Show user input in buffer after sending.
     pub hex_view_highlights: HexHighlightStyle,
+
+    #[derivative(Default(value = "true"))]
+    /// Show how long the connection to the port has been active on the top-right.
+    pub show_connection_time: bool,
 }
+
+// #[derive(
+//     Debug, Clone, Copy, PartialEq, Serialize, Deserialize, strum::Display, strum::VariantArray,
+// )]
+// #[strum(serialize_all = "title_case")]
+// pub enum ConnectionTime {
+//     Hidden,
+//     BelowText,
+//     AboveText,
+// }
 
 #[derive(
     Debug, Clone, Copy, PartialEq, Serialize, Deserialize, strum::Display, strum::VariantArray,

@@ -13,7 +13,7 @@ use crate::settings::PortSettings;
 #[cfg(feature = "espflash")]
 use crate::serial::worker::NativePort;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 /// Port status, shared with the main+UI thread.
 pub struct PortStatus {
     /// The actual state of the port.
@@ -33,26 +33,33 @@ pub struct PortStatus {
 impl PortStatus {
     pub fn new_idle(settings: &PortSettings) -> Self {
         Self {
+            inner: InnerPortStatus::Idle {
+                _disconnected_at: Instant::now(),
+            },
             signals: SerialSignals {
                 dtr: settings.dtr_on_connect,
                 rts: settings.rts_on_connect,
                 ..Default::default()
             },
-            ..Default::default()
+            current_port: None,
         }
     }
     /// Used when a port disconnects without the user's stated intent to do so.
-    pub fn into_unhealthy(self) -> Self {
+    pub fn into_unhealthy(self, disconnected_at: Instant) -> Self {
         Self {
-            inner: InnerPortStatus::PrematureDisconnect,
+            inner: InnerPortStatus::PrematureDisconnect {
+                _disconnected_at: disconnected_at,
+            },
 
             ..self
         }
     }
     /// Used when the user chooses to disconnect from the serial port
-    pub fn into_idle(self, settings: &PortSettings) -> Self {
+    pub fn into_idle(self, disconnected_at: Instant, settings: &PortSettings) -> Self {
         Self {
-            inner: InnerPortStatus::Idle,
+            inner: InnerPortStatus::Idle {
+                _disconnected_at: disconnected_at,
+            },
             current_port: None,
             signals: SerialSignals {
                 dtr: settings.dtr_on_connect,
@@ -70,7 +77,7 @@ impl PortStatus {
 
         Self {
             inner: InnerPortStatus::LentOut {
-                initial_connection_at: connected_at,
+                connected_at,
                 lent_out_at,
             },
             ..self
@@ -85,11 +92,7 @@ impl PortStatus {
     ) -> Result<Self, serialport::Error> {
         use crate::serial::SerialSignals;
 
-        let InnerPortStatus::LentOut {
-            initial_connection_at,
-            ..
-        } = self.inner
-        else {
+        let InnerPortStatus::LentOut { connected_at, .. } = self.inner else {
             panic!("can't return a non-lent port")
         };
 
@@ -97,9 +100,7 @@ impl PortStatus {
         port.write_request_to_send(self.signals.rts)?;
 
         let status = Self {
-            inner: InnerPortStatus::Connected {
-                connected_at: initial_connection_at,
-            },
+            inner: InnerPortStatus::Connected { connected_at },
             signals: SerialSignals {
                 dtr: settings.dtr_on_connect,
                 rts: settings.rts_on_connect,
@@ -125,8 +126,8 @@ impl PortStatus {
             current_port: Some(port_info),
             inner: InnerPortStatus::Connected { connected_at },
             signals: SerialSignals {
-                rts: settings.dtr_on_connect,
                 dtr: settings.dtr_on_connect,
+                rts: settings.rts_on_connect,
                 ..signals
             },
         };
@@ -144,17 +145,16 @@ impl PortStatus {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default, strum::EnumIs)]
+#[derive(Debug, Clone, Copy, strum::EnumIs)]
 pub enum InnerPortStatus {
-    #[default]
     /// No connection has been made.
-    Idle,
+    Idle { _disconnected_at: Instant },
     /// Port was lost unexpectedly.
-    PrematureDisconnect,
+    PrematureDisconnect { _disconnected_at: Instant },
     #[cfg(feature = "espflash")]
     /// Port is temporarily owned by espflash.
     LentOut {
-        initial_connection_at: Instant,
+        connected_at: Instant,
         lent_out_at: Instant,
     },
     /// Port is owned by us and we can read/write to it.
