@@ -365,9 +365,8 @@ impl SerialWorker {
 
                 let previous_status = { self.shared_status.load().as_ref().clone() };
 
-                self.shared_status.store(Arc::new(
-                    previous_status.into_idle(Instant::now(), &settings),
-                ));
+                self.shared_status
+                    .store(Arc::new(previous_status.into_idle(Instant::now())));
                 self.port.drop();
                 self.event_tx
                     .send(SerialDisconnectReason::Intentional.into())?;

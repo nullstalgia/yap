@@ -55,7 +55,7 @@ impl PortStatus {
         }
     }
     /// Used when the user chooses to disconnect from the serial port
-    pub fn into_idle(self, disconnected_at: Instant, settings: &PortSettings) -> Self {
+    pub fn into_idle(self, disconnected_at: Instant) -> Self {
         Self {
             inner: InnerPortStatus::Idle {
                 _disconnected_at: disconnected_at,
