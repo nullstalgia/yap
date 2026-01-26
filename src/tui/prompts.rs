@@ -23,13 +23,19 @@ pub trait PromptKeybind: Clone + strum::VariantArray + strum::EnumProperty {
                 let Some(variant_binding) = v.get_str("keybind") else {
                     return false;
                 };
-                let variant_key_combo: KeyCombination = variant_binding
-                    .parse()
-                    .expect("hardcoded keycombo should be valid");
-                match (value, variant_key_combo.as_letter()) {
-                    (KeyCode::Char(given_char), Some(variant_char)) => given_char == variant_char,
-                    _ => false,
+
+                for letter in variant_binding.chars() {
+                    match (value, letter) {
+                        (KeyCode::Char(given_char), variant_char) => {
+                            if given_char == variant_char {
+                                return true;
+                            }
+                        }
+                        _ => (),
+                    }
                 }
+
+                false
             })
             .cloned()
     }
@@ -44,7 +50,7 @@ pub trait PromptKeybind: Clone + strum::VariantArray + strum::EnumProperty {
 pub enum DisconnectPrompt {
     #[strum(props(keybind = "p"))]
     BackToPortSelection,
-    #[strum(props(keybind = "d"))]
+    #[strum(props(keybind = "dr"))]
     DisconnectFromPort,
     #[strum(props(keybind = "s"))]
     OpenPortSettings,
@@ -65,7 +71,7 @@ impl PromptKeybind for DisconnectPrompt {}
 pub enum AttemptReconnectPrompt {
     #[strum(props(keybind = "p"))]
     BackToPortSelection,
-    #[strum(props(keybind = "r"))]
+    #[strum(props(keybind = "dr"))]
     AttemptReconnect,
     #[strum(props(keybind = "s"))]
     OpenPortSettings,
