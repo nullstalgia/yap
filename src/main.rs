@@ -6,6 +6,29 @@ fn main() -> color_eyre::Result<()> {
 // deduplication of code for defmt and logging defmt
 // SignPath for release binaries
 // ARM builds in releases
+// main menu cursor logic, if on a device, stay on it, otherwise on lower menu index
+// Set defmt mode based on ELF's mode on user's load (but not loading last on startup)
+// command palette
+// maybe macro to make commands?
+// clear buffer command
+// fully optional tls/openssl
+
+// Defaults based on flavor
+
+// customizable scrolling line snippet
+
+// log timstamps after resync are borked?
+
+// for new text pipeline
+// maybe ropes?
+// can resume ansi state
+// can omit certain strings (invalid->escaped bytes/line endings?)
+
+// text wrapping on + kitty resizing a big buffer = pain
+
+// centering of port info on smaller terminal
+
+// build.rs to get version of espflash and defmt
 
 // General TODOs:
 // Mouse select in line mode?

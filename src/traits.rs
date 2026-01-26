@@ -165,6 +165,7 @@ impl<'a> LineHelpers<'a> for Line<'a> {
                 }
                 line_char_index += c.len_utf8();
             });
+
         // let now2 = Instant::now();
         let dark_gray = Style::new().dark_gray();
 

@@ -714,7 +714,7 @@ impl SerialWorker {
             .port
             .as_mut_port()
             .expect("port just populated, should be present");
-        port.set_timeout(Duration::from_millis(100))?;
+        port.set_timeout(Duration::from_millis(100))?; // TODO configurable timeout, choose from some presets?
         port.write_request_to_send(port_status.signals.rts)?;
 
         port_status = port_status.into_connected(

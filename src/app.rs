@@ -312,6 +312,7 @@ pub struct App {
 
     baud_selection_state: SingleLineSelectorState,
     /// User input destination for custom baud
+    /// TODO update this and state properly when selecting a baud from settings menu
     baud_input: Input,
 
     pub popup: Option<Popup>,
@@ -2150,7 +2151,9 @@ impl App {
 
             Menu::Terminal => self.text_input.scroll_history(false),
         }
-    }
+    } // TODO macro categories
+    // when no "has bytes" macros exist
+    // the highlight can get shoved up sometimes
     fn left_pressed(&mut self) {
         match &mut self.popup {
             None => (),

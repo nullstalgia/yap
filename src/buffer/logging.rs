@@ -193,6 +193,7 @@ impl LoggingHandle {
             .send(LoggingCommand::RxBytes(timestamp, bytes))?;
         Ok(())
     }
+    // TODO error with repeated line endings
     pub(super) fn log_tx_bytes(
         &self,
         timestamp: DateTime<Local>,

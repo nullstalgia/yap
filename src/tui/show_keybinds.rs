@@ -257,6 +257,7 @@ pub fn show_keybinds(
                 .iter()
                 .flat_map(|l| l.spans.iter())
                 .any(|s| s.style == Style::new().yellow());
+
             let key_combo_style = if any_unrecognized {
                 Style::new().yellow()
             } else {
