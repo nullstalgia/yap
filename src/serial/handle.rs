@@ -73,7 +73,9 @@ impl SerialHandle {
     ) -> Result<(Self, JoinHandle<()>, Vec<SerialPortInfo>), BlockingCommandError> {
         let (command_tx, command_rx) = crossbeam::channel::unbounded();
 
-        let port_status = Arc::new(ArcSwap::from_pointee(PortStatus::new_idle(&port_settings)));
+        let port_status = Arc::new(ArcSwap::from_pointee(PortStatus::fresh_connection(
+            &port_settings,
+        )));
 
         let port_settings = Arc::new(ArcSwap::from_pointee(port_settings));
 

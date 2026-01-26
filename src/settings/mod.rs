@@ -19,7 +19,7 @@ use strum::VariantArray;
 use crate::{
     app::{COMMON_BAUD_TRUNC, DEFAULT_BAUD},
     buffer::UserEcho,
-    serial::{DeserializedUsb, Reconnections},
+    serial::{DeserializedUsb, Reconnections, SignalAssertion},
 };
 
 pub mod ser;
@@ -530,13 +530,23 @@ pub struct PortSettings {
     )]
     pub stop_bits: StopBits,
 
-    /// Assert DTR to this state on port connect (and reconnect).
+    /// Assert DTR to this state on port connect.
     #[table(rename = "DTR on Connect")]
-    pub dtr_on_connect: bool,
-    // TODO, make an enum for Untouched, Set True, Set False
-    /// Assert RTS to this state on port connect (and reconnect).
+    #[table(values = [SignalAssertion::Bool(true), SignalAssertion::Bool(false), SignalAssertion::Untouched])]
+    pub dtr_on_connect: SignalAssertion,
+    /// Assert RTS to this state on port connect.
     #[table(rename = "RTS on Connect")]
-    pub rts_on_connect: bool,
+    #[table(values = [SignalAssertion::Bool(true), SignalAssertion::Bool(false), SignalAssertion::Untouched])]
+    pub rts_on_connect: SignalAssertion,
+
+    /// Assert DTR to this state on port reconnect.
+    #[table(rename = "DTR on Reconnect")]
+    #[table(values = [SignalAssertion::Bool(true), SignalAssertion::Bool(false), SignalAssertion::Untouched, SignalAssertion::InheritConnect])]
+    pub dtr_on_reconnect: SignalAssertion,
+    /// Assert RTS to this state on port reconnect.
+    #[table(rename = "RTS on Reconnect")]
+    #[table(values = [SignalAssertion::Bool(true), SignalAssertion::Bool(false), SignalAssertion::Untouched, SignalAssertion::InheritConnect])]
+    pub rts_on_reconnect: SignalAssertion,
 
     /// Limit output to 8kbps, regardless of baud. Some devices will overwrite unread data if sent too fast.
     #[table(rename = "Limit TX Speed")]
@@ -592,8 +602,10 @@ impl Default for PortSettings {
             tx_line_ending: TxLineEnding::InheritRx,
             #[cfg(feature = "macros")]
             macro_line_ending: MacroTxLineEnding::InheritTx,
-            dtr_on_connect: true,
-            rts_on_connect: true,
+            dtr_on_connect: SignalAssertion::Bool(true),
+            rts_on_connect: SignalAssertion::Bool(true),
+            dtr_on_reconnect: SignalAssertion::InheritConnect,
+            rts_on_reconnect: SignalAssertion::InheritConnect,
             limit_tx_speed: true,
             reconnections: Reconnections::LooseChecks,
         }

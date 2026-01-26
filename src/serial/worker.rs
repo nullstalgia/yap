@@ -13,7 +13,7 @@ use virtual_serialport::VirtualPort;
 
 use crate::{
     app::{Event, Tick},
-    serial::{SerialDisconnectReason, SerialEvent, port_status::PortStatus},
+    serial::{SerialDisconnectReason, SerialEvent, SignalAssertion, port_status::PortStatus},
     settings::{Ignored, PortSettings},
     traits::ToggleBool,
 };
@@ -176,8 +176,8 @@ impl SerialWorker {
                     debug!("Got shutdown request, dropping port!");
                     self.port.drop();
 
-                    self.shared_status
-                        .store(Arc::new(PortStatus::new_idle(&PortSettings::default())));
+                    // self.shared_status
+                    //     .store(Arc::new(PortStatus::new_idle(&PortSettings::default())));
 
                     if shutdown_tx.send(()).is_err() {
                         error!("Failed to reply to shutdown request!");
@@ -688,7 +688,6 @@ impl SerialWorker {
         let mut port_status: PortStatus = self.shared_status.load().as_ref().clone();
         // If this is a normal connection, then this should be set to settings.dtr_on_open
         // otherwise, if we're reconnecting, then this should match the state of DTR at the time of disconnection
-        let dtr_on_open = port_status.signals.dtr;
         let settings = self.shared_settings.load();
         let baud_rate = settings.baud_rate;
 
@@ -703,11 +702,27 @@ impl SerialWorker {
                 .data_bits(settings.data_bits)
                 .flow_control(settings.flow_control)
                 .parity(settings.parity_bits)
-                .stop_bits(settings.stop_bits)
-                .dtr_on_open(dtr_on_open)
-                .open_native()?;
+                .stop_bits(settings.stop_bits);
 
-            self.port.return_native(port);
+            let port = match (
+                reconnect_type.is_some(),
+                settings.dtr_on_connect,
+                settings.dtr_on_reconnect,
+            ) {
+                (false, SignalAssertion::Untouched, _) => port.preserve_dtr_on_open(),
+                (false, action, _) => port.dtr_on_open(action.into()),
+
+                (true, _, SignalAssertion::Untouched) => port.preserve_dtr_on_open(),
+                (true, SignalAssertion::Untouched, SignalAssertion::InheritConnect) => {
+                    port.preserve_dtr_on_open()
+                }
+                (true, _, SignalAssertion::InheritConnect) => {
+                    port.dtr_on_open(settings.dtr_on_connect.into())
+                }
+                (true, _, action) => port.dtr_on_open(action.into()),
+            };
+
+            self.port.return_native(port.open_native()?);
         };
 
         let port = self
@@ -715,13 +730,30 @@ impl SerialWorker {
             .as_mut_port()
             .expect("port just populated, should be present");
         port.set_timeout(Duration::from_millis(100))?; // TODO configurable timeout, choose from some presets?
-        port.write_request_to_send(port_status.signals.rts)?;
 
-        port_status = port_status.into_connected(
+        match (
+            reconnect_type.is_some(),
+            settings.rts_on_connect,
+            settings.rts_on_reconnect,
+        ) {
+            (false, SignalAssertion::Untouched, _) => (),
+            (false, action, _) => port.write_request_to_send(action.into())?,
+
+            (true, _, SignalAssertion::Untouched) => (),
+            (true, SignalAssertion::Untouched, SignalAssertion::InheritConnect) => (),
+            (true, _, SignalAssertion::InheritConnect) => {
+                port.write_request_to_send(settings.rts_on_connect.into())?
+            }
+
+            (true, _, action) => port.write_request_to_send(action.into())?,
+        };
+
+        port_status = port_status.connecting(
             port,
             port_info.clone(),
             Instant::now(),
             settings.as_ref(),
+            reconnect_type.is_some(),
         )?;
 
         self.shared_status.store(Arc::new(port_status));

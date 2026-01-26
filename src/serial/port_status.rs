@@ -31,14 +31,14 @@ pub struct PortStatus {
 }
 
 impl PortStatus {
-    pub fn new_idle(settings: &PortSettings) -> Self {
+    pub fn fresh_connection(settings: &PortSettings) -> Self {
         Self {
             inner: InnerPortStatus::Idle {
                 _disconnected_at: Instant::now(),
             },
             signals: SerialSignals {
-                dtr: settings.dtr_on_connect,
-                rts: settings.rts_on_connect,
+                dtr: settings.dtr_on_connect.into(),
+                rts: settings.rts_on_connect.into(),
                 ..Default::default()
             },
             current_port: None,
@@ -61,11 +61,7 @@ impl PortStatus {
                 _disconnected_at: disconnected_at,
             },
             current_port: None,
-            signals: SerialSignals {
-                dtr: settings.dtr_on_connect,
-                rts: settings.rts_on_connect,
-                ..Default::default()
-            },
+            signals: SerialSignals::default(),
         }
     }
     /// Used when giving espflash _ownership_ of the serialport object temporarily.
@@ -102,8 +98,8 @@ impl PortStatus {
         let status = Self {
             inner: InnerPortStatus::Connected { connected_at },
             signals: SerialSignals {
-                dtr: settings.dtr_on_connect,
-                rts: settings.rts_on_connect,
+                dtr: settings.dtr_on_reconnect.into(),
+                rts: settings.rts_on_reconnect.into(),
                 ..Default::default()
             },
             ..self
@@ -111,23 +107,36 @@ impl PortStatus {
 
         Ok(status)
     }
-    pub fn into_connected(
+    pub fn connecting(
         self,
         port: &mut dyn SerialPort,
         port_info: SerialPortInfo,
         connected_at: Instant,
         settings: &PortSettings,
+        reconnecting: bool,
     ) -> Result<Self, serialport::Error> {
         let mut signals = self.signals;
 
         signals.update_slave_signals(port)?;
 
+        let (dtr, rts) = if reconnecting {
+            (
+                settings.dtr_on_reconnect.into(),
+                settings.rts_on_reconnect.into(),
+            )
+        } else {
+            (
+                settings.dtr_on_connect.into(),
+                settings.rts_on_connect.into(),
+            )
+        };
+
         let status = Self {
             current_port: Some(port_info),
             inner: InnerPortStatus::Connected { connected_at },
             signals: SerialSignals {
-                dtr: settings.dtr_on_connect,
-                rts: settings.rts_on_connect,
+                dtr,
+                rts,
                 ..signals
             },
         };

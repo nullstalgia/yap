@@ -1,3 +1,6 @@
+use std::str::FromStr;
+
+use serde_untagged::UntaggedEnumVisitor;
 use serialport::{SerialPort, SerialPortInfo, SerialPortType};
 
 use crate::app::Event;
@@ -158,5 +161,62 @@ impl SerialSignals {
         self.cd = cd;
 
         Ok(changed)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumString)]
+pub enum SignalAssertion {
+    /// On connect, assert the signal to the given level.
+    #[strum(transparent)]
+    Bool(bool),
+    /// On connect, take no action to the signal.
+    Untouched,
+    /// Reconnects only, use the Connect's chosen behavior for Reconnects.
+    InheritConnect,
+}
+
+impl serde::Serialize for SignalAssertion {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            SignalAssertion::Bool(b) => serializer.serialize_bool(*b),
+            _ => serializer.serialize_str(&self.to_string()),
+        }
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for SignalAssertion {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        UntaggedEnumVisitor::new()
+            .string(|single| {
+                SignalAssertion::from_str("InheritConnect").map_err(|_| {
+                    serde::de::Error::unknown_variant(
+                        single,
+                        &["true", "false", "Untouched", "InheritConnect"],
+                    )
+                })
+            })
+            .bool(|b| Ok(SignalAssertion::Bool(b)))
+            .deserialize(deserializer)
+    }
+}
+
+impl From<bool> for SignalAssertion {
+    fn from(value: bool) -> Self {
+        Self::Bool(value)
+    }
+}
+
+impl From<SignalAssertion> for bool {
+    fn from(value: SignalAssertion) -> Self {
+        match value {
+            SignalAssertion::Bool(b) => b,
+            _ => false,
+        }
     }
 }
