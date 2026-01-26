@@ -19,7 +19,7 @@ use strum::VariantArray;
 use crate::{
     app::{COMMON_BAUD_TRUNC, DEFAULT_BAUD},
     buffer::UserEcho,
-    serial::{DeserializedUsb, Reconnections, SignalAssertion},
+    serial::{DeserializedUsb, ReconnectionStrictness, SignalAssertion},
 };
 
 pub mod ser;
@@ -552,9 +552,9 @@ pub struct PortSettings {
     #[table(rename = "Limit TX Speed")]
     pub limit_tx_speed: bool,
 
-    /// Enable reconnections. Strict checks USB PID+VID+Serial#. Loose checks for any similar USB device/COM port.
-    #[table(values = Reconnections::VARIANTS)]
-    pub reconnections: Reconnections,
+    /// Enable reconnections with checks. High checks USB PID+VID+Serial#, Med checks USB PID+VID, and Low checks for *any* similar USB device or COM port.
+    #[table(values = ReconnectionStrictness::VARIANTS)]
+    pub reconnection_strictness: ReconnectionStrictness,
 
     /// Line endings for RX'd data.
     #[table(display = ["\\n", "\\r", "\\r\\n", "None"])]
@@ -607,7 +607,7 @@ impl Default for PortSettings {
             dtr_on_reconnect: SignalAssertion::InheritConnect,
             rts_on_reconnect: SignalAssertion::InheritConnect,
             limit_tx_speed: true,
-            reconnections: Reconnections::LooseChecks,
+            reconnection_strictness: ReconnectionStrictness::Med,
         }
     }
 }

@@ -173,16 +173,19 @@ pub enum PortAction {
     DeassertDtr,
 
     /// Attempt to reconnect to device, must match USB info if applicable.
-    AttemptReconnectStrict,
+    AttemptReconnectStrictHigh,
+    AttemptReconnectStrictMed,
     /// Attempt to reconnect to device, best-effort.
-    AttemptReconnectLoose,
+    AttemptReconnectStrictLow,
 }
 
 impl RequiresPort for PortAction {
     fn requires_connection(&self) -> bool {
         match self {
             // Can't require a connection for the method to revitalize one.
-            Self::AttemptReconnectLoose | Self::AttemptReconnectStrict => false,
+            Self::AttemptReconnectStrictHigh
+            | Self::AttemptReconnectStrictMed
+            | Self::AttemptReconnectStrictLow => false,
             _ => true,
         }
     }

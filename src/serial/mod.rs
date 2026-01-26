@@ -77,25 +77,34 @@ impl From<SerialEvent> for Event {
 )]
 #[strum(serialize_all = "title_case")]
 /// Allowance level of Auto-Reconnections
-pub enum Reconnections {
+pub enum ReconnectionStrictness {
     /// No auto reconnections
     Disabled,
+
+    /// Also known as "Strict"
     /// Will only reconnect to devices that either:
     /// 1. Match the last device exactly (Port Name + Port Type) -> PerfectMatch
     /// 2. Match the USB characteristics exactly (PID, VID, Serial, and the rest) -> UsbStrict
-    StrictChecks,
-    /// also known as "Best-Effort"
+    #[serde(alias = "StrictChecks")]
+    High,
+
+    /// Also known as "Loose"
     /// Will first try the Strict Checks and if those fail, will try to connect to devices that:
     /// 3. Match the USB PID and VID of the last device -> UsbLoose
+    Med,
+
+    /// Also known as "Best-Effort"
+    /// Will first try the Strict+Loose Checks and if those fail, will try to connect to devices that:
     /// 4. Any port at the same path of the last device -> LastDitch
-    LooseChecks,
+    #[serde(alias = "LooseChecks")]
+    Low,
 }
 
-impl Reconnections {
+impl ReconnectionStrictness {
     pub fn allowed(&self) -> bool {
         match self {
-            Reconnections::Disabled => false,
-            Reconnections::LooseChecks | Reconnections::StrictChecks => true,
+            ReconnectionStrictness::Disabled => false,
+            _ => true,
         }
     }
 }

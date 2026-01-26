@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use crokey::{KeyCombination, crossterm::event::KeyCode};
+use crokey::crossterm::event::KeyCode;
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Rect},

@@ -19,7 +19,7 @@ use crate::{
 };
 
 use super::{
-    ReconnectType, Reconnections,
+    ReconnectType, ReconnectionStrictness,
     handle::{PortCommand, SerialWorkerCommand},
 };
 
@@ -361,7 +361,7 @@ impl SerialWorker {
             } => {
                 // self.port_status = SerialStatus::idle();
 
-                let settings = self.shared_settings.load();
+                // let settings = self.shared_settings.load();
 
                 let previous_status = { self.shared_status.load().as_ref().clone() };
 
@@ -539,7 +539,7 @@ impl SerialWorker {
     /// not that reconnection was successful.
     fn attempt_reconnect(
         &mut self,
-        strictness_opt: Option<Reconnections>,
+        strictness_opt: Option<ReconnectionStrictness>,
     ) -> Result<(), WorkerError> {
         let port_available = self.port.is_available();
         #[cfg(feature = "espflash")]
@@ -549,10 +549,10 @@ impl SerialWorker {
             return Ok(());
         }
 
-        let reconnections =
-            strictness_opt.unwrap_or_else(|| self.shared_settings.load().reconnections.clone());
+        let reconnections = strictness_opt
+            .unwrap_or_else(|| self.shared_settings.load().reconnection_strictness.clone());
 
-        if reconnections == Reconnections::Disabled {
+        if reconnections == ReconnectionStrictness::Disabled {
             warn!("Got request to reconnect when reconnections are disabled!");
             return Ok(());
         }
@@ -602,21 +602,23 @@ impl SerialWorker {
             };
 
             // Loose check
-            if reconnections == Reconnections::LooseChecks
-                && let Some(port) = current_ports
-                    .iter()
-                    // Filtering out ports that didn't change across scans
-                    .filter(|p| !self.scan_snapshot.contains(p))
-                    // Trying to find another USB device with *just* matching USB PID & VID
-                    // Use cases: Some devices seem to change their Serial # arbitrarily?
-                    //          - And for interfacing with several identical devices (one at a time) without reconnecting via TUI
-                    // Needs a toggle with Strict/Loose options, as the extra behavior isn't always desirable.
-                    .find(|p| match &p.port_type {
-                        SerialPortType::UsbPort(usb) => {
-                            usb.vid == desired_usb.vid && usb.pid == desired_usb.pid
-                        }
-                        _ => false,
-                    })
+            if matches!(
+                reconnections,
+                ReconnectionStrictness::Med | ReconnectionStrictness::Low
+            ) && let Some(port) = current_ports
+                .iter()
+                // Filtering out ports that didn't change across scans
+                .filter(|p| !self.scan_snapshot.contains(p))
+                // Trying to find another USB device with *just* matching USB PID & VID
+                // Use cases: Some devices seem to change their Serial # arbitrarily?
+                //          - And for interfacing with several identical devices (one at a time) without reconnecting via TUI
+                // Needs a toggle with Strict/Loose options, as the extra behavior isn't always desirable.
+                .find(|p| match &p.port_type {
+                    SerialPortType::UsbPort(usb) => {
+                        usb.vid == desired_usb.vid && usb.pid == desired_usb.pid
+                    }
+                    _ => false,
+                })
             {
                 info!(
                     "[NON-STRICT] Connecting to similar USB device with port: {}",
@@ -629,7 +631,7 @@ impl SerialWorker {
         }
 
         // Loose check
-        if reconnections == Reconnections::LooseChecks
+        if matches!(reconnections, ReconnectionStrictness::Low)
             // Last ditch effort, just try to connect to the same port_name if it's present.
             && let Some(port) = current_ports
                 .iter()

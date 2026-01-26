@@ -9,7 +9,7 @@ use tracing::{debug, error};
 
 use crate::{
     app::Event,
-    serial::{Reconnections, port_status::PortStatus, worker::WorkerError},
+    serial::{ReconnectionStrictness, port_status::PortStatus, worker::WorkerError},
     settings::{Ignored, PortSettings},
 };
 
@@ -29,7 +29,7 @@ pub enum SerialWorkerCommand {
         result_tx: Sender<Result<(), super::worker::WorkerError>>,
     },
     PortCommand(PortCommand),
-    RequestReconnect(Option<Reconnections>),
+    RequestReconnect(Option<ReconnectionStrictness>),
     Disconnect {
         user_wants_break: bool,
     },
@@ -226,7 +226,10 @@ impl SerialHandle {
         }
     }
     /// Non-blocking request for the serial worker to attempt to reconnect to the "current" device
-    pub fn request_reconnect(&self, strictness_opt: Option<Reconnections>) -> HandleResult<()> {
+    pub fn request_reconnect(
+        &self,
+        strictness_opt: Option<ReconnectionStrictness>,
+    ) -> HandleResult<()> {
         self.command_tx
             .send(SerialWorkerCommand::RequestReconnect(strictness_opt))?;
         Ok(())

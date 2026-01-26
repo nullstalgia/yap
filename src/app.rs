@@ -46,8 +46,8 @@ use crate::{
     keybinds::{Action, BaseAction, BuiltinAction, Keybinds, PortAction, ShowPopupAction},
     notifications::{EMERGE_TIME, EXPAND_TIME, EXPIRE_TIME, Notifications, PAUSE_AND_SHOW_TIME},
     serial::{
-        DeserializedUsb, PrintablePortInfo, ReconnectType, Reconnections, SerialDisconnectReason,
-        SerialEvent,
+        DeserializedUsb, PrintablePortInfo, ReconnectType, ReconnectionStrictness,
+        SerialDisconnectReason, SerialEvent,
         handle::{BlockingCommandError, SerialHandle},
         port_status::InnerPortStatus,
         worker::MOCK_PORT_NAME,
@@ -792,11 +792,16 @@ impl App {
                     }
                     SerialDisconnectReason::Error(error) => {
                         error!("Serial worker reported error on disconnect! {error}");
-                        let reconnect_text = match &self.settings.serial.reconnections {
-                            Reconnections::Disabled => "Not attempting to reconnect",
-                            Reconnections::LooseChecks => "Attempting to reconnect (loose checks)",
-                            Reconnections::StrictChecks => {
-                                "Attempting to reconnect (strict checks)"
+                        let reconnect_text = match &self.settings.serial.reconnection_strictness {
+                            ReconnectionStrictness::Disabled => "Not attempting to reconnect",
+                            ReconnectionStrictness::Low => {
+                                "Attempting to reconnect (low strictness checks)"
+                            }
+                            ReconnectionStrictness::Med => {
+                                "Attempting to reconnect (med strictness checks)"
+                            }
+                            ReconnectionStrictness::High => {
+                                "Attempting to reconnect (high strictness checks)"
                             }
                         };
                         self.notifs.notify_str(
@@ -860,8 +865,12 @@ impl App {
 
                     let port_status = &self.serial.port_status.load().status();
 
-                    let reconnections_allowed =
-                        self.serial.port_settings.load().reconnections.allowed();
+                    let reconnections_allowed = self
+                        .serial
+                        .port_settings
+                        .load()
+                        .reconnection_strictness
+                        .allowed();
                     if !port_status.is_connected()
                         && !port_status.is_lent_out()
                         && reconnections_allowed
@@ -1733,13 +1742,17 @@ impl App {
             A::Port(PortAction::DeassertRts) => {
                 self.serial.write_signals(None, Some(false))?;
             }
-            A::Port(PortAction::AttemptReconnectStrict) => {
+            A::Port(PortAction::AttemptReconnectStrictHigh) => {
                 self.serial
-                    .request_reconnect(Some(Reconnections::StrictChecks))?;
+                    .request_reconnect(Some(ReconnectionStrictness::High))?;
             }
-            A::Port(PortAction::AttemptReconnectLoose) => {
+            A::Port(PortAction::AttemptReconnectStrictMed) => {
                 self.serial
-                    .request_reconnect(Some(Reconnections::LooseChecks))?;
+                    .request_reconnect(Some(ReconnectionStrictness::Med))?;
+            }
+            A::Port(PortAction::AttemptReconnectStrictLow) => {
+                self.serial
+                    .request_reconnect(Some(ReconnectionStrictness::Low))?;
             }
             A::Base(BaseAction::ToggleTextwrap) => {
                 let state = pretty_bool(self.settings.rendering.wrap_text.flip());
@@ -1996,7 +2009,7 @@ impl App {
                 // and if auto-reconnections is disabled.
                 // (when auto-reconns. are enabled, the normal Disconnect prompt
                 // is supposed to show to act as a pause for auto-reconnections)
-                && !port_settings_guard.reconnections.allowed())
+                && !port_settings_guard.reconnection_strictness.allowed())
     }
     // fn tab_pressed(&mut self) {}
     fn esc_pressed(&mut self) {
@@ -2877,14 +2890,14 @@ impl App {
                 self.notifs
                     .notify_str("Attempting to reconnect! (Loose Checks)", Color::Yellow);
                 self.serial
-                    .request_reconnect(Some(Reconnections::LooseChecks))?;
+                    .request_reconnect(Some(ReconnectionStrictness::Low))?;
             }
             AttemptReconnectPrompt::AttemptReconnect => {
                 self.repeating_line_flip.flip();
                 self.notifs
                     .notify_str("Attempting to reconnect! (Strict Checks)", Color::Yellow);
                 self.serial
-                    .request_reconnect(Some(Reconnections::StrictChecks))?;
+                    .request_reconnect(Some(ReconnectionStrictness::High))?;
             }
             AttemptReconnectPrompt::Cancel => self.dismiss_popup(),
             AttemptReconnectPrompt::OpenPortSettings => {
@@ -3227,7 +3240,7 @@ impl App {
             }
             Popup::DisconnectPrompt => {
                 let port_state = { self.serial.port_status.load().status() };
-                let reconns_paused = if self.settings.serial.reconnections.allowed()
+                let reconns_paused = if self.settings.serial.reconnection_strictness.allowed()
                     && port_state.is_premature_disconnect()
                 {
                     Some("(Auto-reconnections paused while open)")
