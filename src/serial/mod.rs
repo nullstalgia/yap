@@ -102,10 +102,7 @@ pub enum ReconnectionStrictness {
 
 impl ReconnectionStrictness {
     pub fn allowed(&self) -> bool {
-        match self {
-            ReconnectionStrictness::Disabled => false,
-            _ => true,
-        }
+        matches!(self, ReconnectionStrictness::Disabled)
     }
 }
 

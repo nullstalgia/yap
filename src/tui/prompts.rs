@@ -25,13 +25,10 @@ pub trait PromptKeybind: Clone + strum::VariantArray + strum::EnumProperty {
                 };
 
                 for letter in variant_binding.chars() {
-                    match (value, letter) {
-                        (KeyCode::Char(given_char), variant_char) => {
-                            if given_char == variant_char {
-                                return true;
-                            }
-                        }
-                        _ => (),
+                    if let (KeyCode::Char(given_char), variant_char) = (value, letter)
+                        && given_char == variant_char
+                    {
+                        return true;
                     }
                 }
 
