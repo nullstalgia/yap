@@ -4123,7 +4123,7 @@ impl App {
                     .borders(Borders::TOP)
                     .border_style(Style::from(block_color));
                 frame.render_widget(
-                    Line::raw("Powered by esp-rs/espflash v4.1.0!")
+                    Line::raw("Powered by esp-rs/espflash v4.3.0!")
                         .all_spans_styled(Color::DarkGray.into())
                         .centered(),
                     line_area,

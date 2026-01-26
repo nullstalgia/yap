@@ -1359,21 +1359,22 @@ dependencies = [
 
 [[package]]
 name = "espflash"
-version = "4.1.0"
+version = "4.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c63d954132db04edb660af5a554a46f909f7b172d7601b4af3fea994b926821"
+checksum = "46f05d15cb2479a3cbbbe684b9f0831b2ae036d9faefd1eb08f21267275862f9"
 dependencies = [
  "base64",
  "bitflags 2.9.1",
  "bytemuck",
  "esp-idf-part",
  "flate2",
+ "gimli 0.32.3",
  "libc",
  "log",
  "md-5",
  "miette",
  "nix 0.30.1",
- "object 0.37.1",
+ "object 0.38.1",
  "regex",
  "serde",
  "serialport",
@@ -1639,6 +1640,17 @@ name = "gimli"
 version = "0.31.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07e28edb80900c19c28f1072f2e8aeca7fa06b23cd4169cefe1af5aa3260783f"
+
+[[package]]
+name = "gimli"
+version = "0.32.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e629b9b98ef3dd8afe6ca2bd0f89306cec16d43d907889945bc5d6687f2f13c7"
+dependencies = [
+ "fallible-iterator",
+ "indexmap 2.10.0",
+ "stable_deref_trait",
+]
 
 [[package]]
 name = "h2"
@@ -2726,9 +2738,9 @@ dependencies = [
 
 [[package]]
 name = "object"
-version = "0.37.1"
+version = "0.38.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03fd943161069e1768b4b3d050890ba48730e590f57e56d4aa04e7e090e61b4a"
+checksum = "271638cd5fa9cca89c4c304675ca658efc4e64a66c716b7cfe1afb4b9611dbbc"
 dependencies = [
  "flate2",
  "memchr",
