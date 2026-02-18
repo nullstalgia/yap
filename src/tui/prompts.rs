@@ -14,6 +14,37 @@ use strum::{EnumProperty, VariantArray, VariantNames};
 // maybe just a single shared bool for all of them,
 // and whichever is active is the one that gets flipped
 
+macro_rules! verify_keybind_uniqueness {
+    () => {
+        compile_error!("Enter a type name or comma-separated list of type names.");
+    };
+    ($($type:ty),+) => {
+        #[test]
+        fn verify_keybind_uniqueness() {
+            use std::collections::HashSet;
+            use strum::VariantArray;
+
+            $(
+            {
+                let mut keybind_chars = HashSet::new();
+                for variant in <$type as VariantArray>::VARIANTS.iter() {
+
+                    let Some(variant_binding) = variant.get_str("keybind") else {
+                        continue;
+                    };
+
+                    for letter in variant_binding.chars() {
+                        if !keybind_chars.insert(letter) {
+                            panic!("Found character '{letter}' more than once in prompt keybinds!");
+                        }
+                    }
+                }
+            }
+            )+
+        }
+    };
+}
+
 pub trait PromptKeybind: Clone + strum::VariantArray + strum::EnumProperty {
     /// Take a crossterm KeyCode and return the variant that has a matching shortcut.
     fn from_key_code(value: KeyCode) -> Option<Self> {
@@ -45,11 +76,11 @@ pub trait PromptKeybind: Clone + strum::VariantArray + strum::EnumProperty {
 #[strum(serialize_all = "title_case")]
 /// For Terminal Screen only, when ESC pressed.
 pub enum DisconnectPrompt {
-    #[strum(props(keybind = "p"))]
+    #[strum(props(keybind = "bp"))]
     BackToPortSelection,
-    #[strum(props(keybind = "dr"))]
+    #[strum(props(keybind = "adr"))]
     DisconnectFromPort,
-    #[strum(props(keybind = "s"))]
+    #[strum(props(keybind = "os"))]
     OpenPortSettings,
     #[strum(props(keybind = "e"))]
     ExitApp,
@@ -66,11 +97,11 @@ impl PromptKeybind for DisconnectPrompt {}
 #[strum(serialize_all = "title_case")]
 /// For Terminal Screen only, when ESC pressed _and_ reconnections are off/paused.
 pub enum AttemptReconnectPrompt {
-    #[strum(props(keybind = "p"))]
+    #[strum(props(keybind = "bp"))]
     BackToPortSelection,
-    #[strum(props(keybind = "dr"))]
+    #[strum(props(keybind = "adr"))]
     AttemptReconnect,
-    #[strum(props(keybind = "s"))]
+    #[strum(props(keybind = "os"))]
     OpenPortSettings,
     #[strum(props(keybind = "e"))]
     ExitApp,
@@ -111,6 +142,13 @@ pub enum IgnorePortByNamePrompt {
 }
 
 impl PromptKeybind for IgnorePortByNamePrompt {}
+
+verify_keybind_uniqueness!(
+    DisconnectPrompt,
+    AttemptReconnectPrompt,
+    IgnoreUsbDevicePrompt,
+    IgnorePortByNamePrompt
+);
 
 // #[derive(
 //     Debug, strum::VariantNames, strum::VariantArray, strum::EnumProperty, int_enum::IntEnum,
