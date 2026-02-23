@@ -2061,11 +2061,6 @@ impl App {
             Some(Popup::CurrentKeybinds) => {
                 self.popup_menu_scroll = self.popup_menu_scroll.saturating_sub(1);
             }
-            #[cfg(not(any(feature = "espflash", feature = "macros")))]
-            Some(Popup::SettingsMenu(_)) => match self.popup_menu_scroll {
-                0 => self.select_last_popup_item(),
-                _ => self.popup_menu_scroll -= 1,
-            },
             Some(Popup::SettingsMenu(_)) => match self.popup_menu_scroll {
                 0 => self.select_last_popup_item(),
                 _ => self.popup_menu_scroll -= 1,
@@ -2219,6 +2214,7 @@ impl App {
             Some(Popup::Macros) if self.popup_menu_scroll == 0 => {
                 self.cycle_menu_type(false);
             }
+            #[cfg(any(feature = "espflash", feature = "macros"))]
             Some(Popup::SettingsMenu(_)) if self.popup_menu_scroll == 0 => {
                 self.cycle_menu_type(false);
             }
@@ -2344,6 +2340,7 @@ impl App {
             Some(Popup::Macros) if self.popup_menu_scroll == 0 => {
                 self.cycle_menu_type(true);
             }
+            #[cfg(any(feature = "espflash", feature = "macros"))]
             Some(Popup::SettingsMenu(_)) if self.popup_menu_scroll == 0 => {
                 self.cycle_menu_type(true);
             }
@@ -3466,7 +3463,10 @@ impl App {
         // let title_lines = ;
         let mut menu_selector_state = SingleLineSelectorState::new();
         menu_selector_state.active = self.popup_menu_scroll == 0;
+        #[cfg(any(feature = "espflash", feature = "macros"))]
         let owned_entries_iter = <MainPopup as VariantNames>::VARIANTS.iter().copied();
+        #[cfg(not(any(feature = "espflash", feature = "macros")))]
+        let owned_entries_iter = ["Settings"];
         let popup_menu_title_selector = SingleLineSelector::new(owned_entries_iter)
             .with_next_symbol(">")
             .with_prev_symbol("<")
