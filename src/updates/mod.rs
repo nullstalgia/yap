@@ -131,14 +131,19 @@ impl UpdateBackend {
 
         let current_str = env!("CARGO_PKG_VERSION");
         let current = Version::parse(current_str).expect("failed to parse app's own semver");
-        let releases = self_update::backends::github::Update::configure()
-            // .auth_token("github_pat_xyz")
+        let mut update_builder = self_update::backends::github::Update::configure();
+        update_builder
             .repo_owner("nullstalgia")
             .repo_name("yap")
             .bin_name("yap")
-            .current_version(current_str)
-            .build()?
-            .get_latest_releases(current_str)?;
+            .current_version(current_str);
+
+        let auth_token = option_env!("GITHUB_AUTH_TOKEN");
+        if let Some(token) = auth_token {
+            update_builder.auth_token(token);
+        }
+
+        let releases = update_builder.build()?.get_latest_releases(current_str)?;
 
         let newest = releases
             .into_iter()
@@ -192,12 +197,14 @@ impl UpdateBackend {
             http::header::USER_AGENT,
             "yap/self-update".parse().expect("invalid user-agent"),
         );
-        // headers.insert(
-        //     http::header::AUTHORIZATION,
-        //     (String::from("token ") + "github_pat_xyz")
-        //         .parse()
-        //         .unwrap(),
-        // );
+
+        let auth_token = option_env!("GITHUB_AUTH_TOKEN");
+        if let Some(token) = auth_token {
+            headers.insert(
+                http::header::AUTHORIZATION,
+                (String::from("token ") + auth_token).parse().unwrap(),
+            );
+        }
 
         let client = reqwest::blocking::ClientBuilder::new()
             .default_headers(headers)
