@@ -604,7 +604,7 @@ impl SerialWorker {
             // Loose check
             if matches!(
                 reconnections,
-                ReconnectionStrictness::Med | ReconnectionStrictness::Low
+                ReconnectionStrictness::Medium | ReconnectionStrictness::Low
             ) && let Some(port) = current_ports
                 .iter()
                 // Filtering out ports that didn't change across scans

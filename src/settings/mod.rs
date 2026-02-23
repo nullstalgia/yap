@@ -607,7 +607,7 @@ impl Default for PortSettings {
             dtr_on_reconnect: SignalAssertion::InheritConnect,
             rts_on_reconnect: SignalAssertion::InheritConnect,
             limit_tx_speed: true,
-            reconnection_strictness: ReconnectionStrictness::Med,
+            reconnection_strictness: ReconnectionStrictness::Medium,
         }
     }
 }

@@ -797,7 +797,7 @@ impl App {
                             ReconnectionStrictness::Low => {
                                 "Attempting to reconnect (low strictness checks)"
                             }
-                            ReconnectionStrictness::Med => {
+                            ReconnectionStrictness::Medium => {
                                 "Attempting to reconnect (med strictness checks)"
                             }
                             ReconnectionStrictness::High => {

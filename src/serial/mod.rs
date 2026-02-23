@@ -91,7 +91,7 @@ pub enum ReconnectionStrictness {
     /// Also known as "Loose"
     /// Will first try the Strict Checks and if those fail, will try to connect to devices that:
     /// 3. Match the USB PID and VID of the last device -> UsbLoose
-    Med,
+    Medium,
 
     /// Also known as "Best-Effort"
     /// Will first try the Strict+Loose Checks and if those fail, will try to connect to devices that:
