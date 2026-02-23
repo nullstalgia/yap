@@ -118,7 +118,7 @@ pub trait StrAsOption {
 #[cfg(any(feature = "espflash", feature = "macros"))]
 impl StrAsOption for str {
     fn as_option(&self) -> Option<&str> {
-        if self.is_empty() { None } else { Some(&self) }
+        if self.is_empty() { None } else { Some(self) }
     }
 }
 
