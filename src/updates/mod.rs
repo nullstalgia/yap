@@ -139,8 +139,8 @@ impl UpdateBackend {
             .current_version(current_str);
 
         let auth_token = option_env!("GITHUB_AUTH_TOKEN");
-        if let Some(token) = auth_token {
-            update_builder.auth_token(token);
+        if let Some(auth_token) = auth_token {
+            update_builder.auth_token(auth_token);
         }
 
         let releases = update_builder.build()?.get_latest_releases(current_str)?;
@@ -199,7 +199,7 @@ impl UpdateBackend {
         );
 
         let auth_token = option_env!("GITHUB_AUTH_TOKEN");
-        if let Some(token) = auth_token {
+        if let Some(auth_token) = auth_token {
             headers.insert(
                 http::header::AUTHORIZATION,
                 (String::from("token ") + auth_token).parse().unwrap(),
