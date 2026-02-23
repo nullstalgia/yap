@@ -207,7 +207,8 @@ pub enum SettingsMenu {
 #[derive(Debug, Clone, PartialEq, Eq, EnumRotate, VariantArray, VariantNames)]
 #[repr(u8)]
 #[strum(serialize_all = "title_case")]
-pub enum ToolMenu {
+pub enum MainPopup {
+    Settings,
     #[cfg(feature = "macros")]
     Macros,
     #[cfg(feature = "espflash")]
@@ -215,12 +216,28 @@ pub enum ToolMenu {
     EspFlash,
 }
 
+#[cfg(any(feature = "espflash", feature = "macros"))]
+impl From<&Popup> for MainPopup {
+    fn from(value: &Popup) -> Self {
+        match value {
+            Popup::SettingsMenu(_) => Self::Settings,
+            #[cfg(feature = "macros")]
+            Popup::Macros => Self::Macros,
+            #[cfg(feature = "espflash")]
+            Popup::EspFlash => Self::EspFlash,
+            _ => Self::Settings,
+        }
+    }
+}
+
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, PartialEq)]
 pub enum Popup {
     SettingsMenu(SettingsMenu),
-    #[cfg(any(feature = "espflash", feature = "macros"))]
-    ToolMenu(ToolMenu),
+    #[cfg(feature = "macros")]
+    Macros,
+    #[cfg(feature = "espflash")]
+    EspFlash,
     CurrentKeybinds,
     #[cfg(feature = "defmt")]
     DefmtNewElf(FileExplorer),
@@ -243,9 +260,15 @@ pub enum Popup {
 }
 
 #[cfg(any(feature = "espflash", feature = "macros"))]
-impl From<ToolMenu> for Popup {
-    fn from(value: ToolMenu) -> Self {
-        Self::ToolMenu(value)
+impl From<MainPopup> for Popup {
+    fn from(value: MainPopup) -> Self {
+        match value {
+            MainPopup::Settings => Popup::SettingsMenu(SettingsMenu::SerialPort),
+            #[cfg(feature = "espflash")]
+            MainPopup::EspFlash => Popup::EspFlash,
+            #[cfg(feature = "macros")]
+            MainPopup::Macros => Popup::Macros,
+        }
     }
 }
 impl From<SettingsMenu> for Popup {
@@ -1151,7 +1174,7 @@ impl App {
         // TODO move these into per-menu funcs.
         match self.popup {
             #[cfg(feature = "macros")]
-            Some(Popup::ToolMenu(ToolMenu::Macros)) => {
+            Some(Popup::Macros) => {
                 self.macros
                     .search_input
                     .handle_event(&ratatui::crossterm::event::Event::Key(key_event));
@@ -1337,7 +1360,7 @@ impl App {
         let vim_scrollable_menu: bool = match (self.menu, &self.popup) {
             // (_, Some(PopupMenu::Macros), MacrosPrompt::Keybind) => false,
             #[cfg(feature = "macros")]
-            (_, Some(Popup::ToolMenu(ToolMenu::Macros))) => false,
+            (_, Some(Popup::Macros)) => false,
             (Menu::Terminal, None) => false,
             _ => true,
         };
@@ -1435,13 +1458,13 @@ impl App {
                 self.run_builtin_action(BuiltinAction::Base(BaseAction::ReloadKeybinds))?;
             }
             #[cfg(feature = "macros")]
-            key!(ctrl - r) if self.popup == Some(Popup::ToolMenu(ToolMenu::Macros)) => {
+            key!(ctrl - r) if self.popup == Some(Popup::Macros) => {
                 self.run_builtin_action(BuiltinAction::MacroBuiltin(
                     MacroBuiltinAction::ReloadMacros,
                 ))?;
             }
             #[cfg(feature = "espflash")]
-            key!(ctrl - r) if self.popup == Some(Popup::ToolMenu(ToolMenu::EspFlash)) => {
+            key!(ctrl - r) if self.popup == Some(Popup::EspFlash) => {
                 self.run_builtin_action(BuiltinAction::EspBuiltin(
                     EspBuiltinAction::ReloadProfiles,
                 ))?;
@@ -1748,7 +1771,7 @@ impl App {
             }
             A::Port(PortAction::AttemptReconnectStrictMed) => {
                 self.serial
-                    .request_reconnect(Some(ReconnectionStrictness::Med))?;
+                    .request_reconnect(Some(ReconnectionStrictness::Medium))?;
             }
             A::Port(PortAction::AttemptReconnectStrictLow) => {
                 self.serial
@@ -2043,13 +2066,20 @@ impl App {
                 0 => self.select_last_popup_item(),
                 _ => self.popup_menu_scroll -= 1,
             },
-            #[cfg(any(feature = "espflash", feature = "macros"))]
-            Some(Popup::SettingsMenu(_)) | Some(Popup::ToolMenu(_)) => {
-                match self.popup_menu_scroll {
-                    0 => self.select_last_popup_item(),
-                    _ => self.popup_menu_scroll -= 1,
-                }
-            }
+            Some(Popup::SettingsMenu(_)) => match self.popup_menu_scroll {
+                0 => self.select_last_popup_item(),
+                _ => self.popup_menu_scroll -= 1,
+            },
+            #[cfg(feature = "espflash")]
+            Some(Popup::EspFlash) => match self.popup_menu_scroll {
+                0 => self.select_last_popup_item(),
+                _ => self.popup_menu_scroll -= 1,
+            },
+            #[cfg(feature = "macros")]
+            Some(Popup::Macros) => match self.popup_menu_scroll {
+                0 => self.select_last_popup_item(),
+                _ => self.popup_menu_scroll -= 1,
+            },
             #[cfg(feature = "defmt")]
             Some(Popup::DefmtNewElf(_)) => (),
             #[cfg(feature = "defmt")]
@@ -2104,18 +2134,20 @@ impl App {
             Some(Popup::CurrentKeybinds) => {
                 self.popup_menu_scroll += 1;
             }
-            #[cfg(not(any(feature = "espflash", feature = "macros")))]
             Some(Popup::SettingsMenu(_)) => match self.popup_menu_scroll {
                 _last if self.last_popup_item_selected() => self.popup_menu_scroll = 0,
                 _ => self.popup_menu_scroll += 1,
             },
-            #[cfg(any(feature = "espflash", feature = "macros"))]
-            Some(Popup::SettingsMenu(_)) | Some(Popup::ToolMenu(_)) => {
-                match self.popup_menu_scroll {
-                    _last if self.last_popup_item_selected() => self.popup_menu_scroll = 0,
-                    _ => self.popup_menu_scroll += 1,
-                }
-            }
+            #[cfg(feature = "espflash")]
+            Some(Popup::EspFlash) => match self.popup_menu_scroll {
+                _last if self.last_popup_item_selected() => self.popup_menu_scroll = 0,
+                _ => self.popup_menu_scroll += 1,
+            },
+            #[cfg(feature = "macros")]
+            Some(Popup::Macros) => match self.popup_menu_scroll {
+                _last if self.last_popup_item_selected() => self.popup_menu_scroll = 0,
+                _ => self.popup_menu_scroll += 1,
+            },
             #[cfg(feature = "defmt")]
             Some(Popup::DefmtNewElf(_)) => (),
             #[cfg(feature = "defmt")]
@@ -2179,18 +2211,19 @@ impl App {
             | Some(Popup::CurrentKeybinds) => (),
             #[cfg(not(any(feature = "espflash", feature = "macros")))]
             Some(Popup::SettingsMenu(_)) if self.popup_menu_scroll == 0 => {}
-            #[cfg(any(feature = "espflash", feature = "macros"))]
-            Some(Popup::SettingsMenu(_)) | Some(Popup::ToolMenu(_))
-                if self.popup_menu_scroll == 0 =>
-            {
-                self.cycle_menu_type();
+            #[cfg(feature = "espflash")]
+            Some(Popup::EspFlash) if self.popup_menu_scroll == 0 => {
+                self.cycle_menu_type(false);
             }
-            #[cfg(any(feature = "espflash", feature = "macros"))]
-            Some(Popup::ToolMenu(_)) if self.popup_menu_scroll == 1 => {
-                self.cycle_sub_menu(false);
+            #[cfg(feature = "macros")]
+            Some(Popup::Macros) if self.popup_menu_scroll == 0 => {
+                self.cycle_menu_type(false);
+            }
+            Some(Popup::SettingsMenu(_)) if self.popup_menu_scroll == 0 => {
+                self.cycle_menu_type(false);
             }
             Some(Popup::SettingsMenu(_)) if self.popup_menu_scroll == 1 => {
-                self.cycle_sub_menu(false);
+                self.cycle_settings_menu(false);
             }
             Some(Popup::SettingsMenu(SettingsMenu::SerialPort)) => {
                 self.scratch
@@ -2215,21 +2248,21 @@ impl App {
                     .unwrap();
             }
             #[cfg(feature = "macros")]
-            Some(Popup::ToolMenu(ToolMenu::Macros)) => {
+            Some(Popup::Macros) => {
                 if !self.macros.search_input.value().is_empty() {
                     return;
                 }
                 self.macros.categories_selector.prev();
                 if self.popup_menu_scroll >= POPUP_MENU_SELECTOR_COUNT {
                     if self.macros.none_visible() {
-                        self.popup_menu_scroll = 1;
+                        self.popup_menu_scroll = 0;
                     } else {
-                        self.popup_menu_scroll = 2;
+                        self.popup_menu_scroll = 1;
                     }
                 }
             }
             #[cfg(feature = "espflash")]
-            Some(Popup::ToolMenu(ToolMenu::EspFlash)) => {
+            Some(Popup::EspFlash) => {
                 if self.popup_menu_scroll == POPUP_MENU_SELECTOR_COUNT + 1 {
                     self.espflash.unchecked_bootloader.flip();
                 }
@@ -2303,18 +2336,19 @@ impl App {
             | Some(Popup::CurrentKeybinds) => (),
             #[cfg(not(any(feature = "espflash", feature = "macros")))]
             Some(Popup::SettingsMenu(_)) if self.popup_menu_scroll == 0 => {}
-            #[cfg(any(feature = "espflash", feature = "macros"))]
-            Some(Popup::SettingsMenu(_)) | Some(Popup::ToolMenu(_))
-                if self.popup_menu_scroll == 0 =>
-            {
-                self.cycle_menu_type();
+            #[cfg(feature = "espflash")]
+            Some(Popup::EspFlash) if self.popup_menu_scroll == 0 => {
+                self.cycle_menu_type(true);
             }
-            #[cfg(any(feature = "espflash", feature = "macros"))]
-            Some(Popup::ToolMenu(_)) if self.popup_menu_scroll == 1 => {
-                self.cycle_sub_menu(true);
+            #[cfg(feature = "macros")]
+            Some(Popup::Macros) if self.popup_menu_scroll == 0 => {
+                self.cycle_menu_type(true);
+            }
+            Some(Popup::SettingsMenu(_)) if self.popup_menu_scroll == 0 => {
+                self.cycle_menu_type(true);
             }
             Some(Popup::SettingsMenu(_)) if self.popup_menu_scroll == 1 => {
-                self.cycle_sub_menu(true);
+                self.cycle_settings_menu(true);
             }
             Some(Popup::SettingsMenu(SettingsMenu::SerialPort)) => {
                 self.scratch
@@ -2339,21 +2373,21 @@ impl App {
                     .unwrap();
             }
             #[cfg(feature = "macros")]
-            Some(Popup::ToolMenu(ToolMenu::Macros)) => {
+            Some(Popup::Macros) => {
                 if !self.macros.search_input.value().is_empty() {
                     return;
                 }
                 self.macros.categories_selector.next();
                 if self.popup_menu_scroll >= POPUP_MENU_SELECTOR_COUNT {
                     if self.macros.none_visible() {
-                        self.popup_menu_scroll = 1;
+                        self.popup_menu_scroll = 0;
                     } else {
-                        self.popup_menu_scroll = 2;
+                        self.popup_menu_scroll = 1;
                     }
                 }
             }
             #[cfg(feature = "espflash")]
-            Some(Popup::ToolMenu(ToolMenu::EspFlash)) => {
+            Some(Popup::EspFlash) => {
                 if self.popup_menu_scroll == POPUP_MENU_SELECTOR_COUNT + 1 {
                     self.espflash.unchecked_bootloader.flip();
                 }
@@ -2417,8 +2451,12 @@ impl App {
             Some(Popup::SettingsMenu(_)) if self.popup_menu_scroll < POPUP_MENU_SELECTOR_COUNT => {
                 return Ok(());
             }
-            #[cfg(any(feature = "espflash", feature = "macros"))]
-            Some(Popup::ToolMenu(_)) if self.popup_menu_scroll < POPUP_MENU_SELECTOR_COUNT => {
+            #[cfg(feature = "espflash")]
+            Some(Popup::EspFlash) if self.popup_menu_scroll < POPUP_MENU_SELECTOR_COUNT => {
+                return Ok(());
+            }
+            #[cfg(feature = "macros")]
+            Some(Popup::Macros) if self.popup_menu_scroll < POPUP_MENU_SELECTOR_COUNT => {
                 return Ok(());
             }
             // Some(Popup::ErrorMessage(_)) => self.dismiss_popup(),
@@ -2518,7 +2556,7 @@ impl App {
                     .notify_str("defmt settings saved!", Color::Green);
             }
             #[cfg(feature = "macros")]
-            Some(Popup::ToolMenu(ToolMenu::Macros)) => {
+            Some(Popup::Macros) => {
                 // Category selector active, just ignore.
                 if self.popup_menu_scroll == 2 {
                     return Ok(());
@@ -2566,7 +2604,7 @@ impl App {
                 }
             }
             #[cfg(feature = "espflash")]
-            Some(Popup::ToolMenu(ToolMenu::EspFlash)) => {
+            Some(Popup::EspFlash) => {
                 if !serial_healthy {
                     self.notifs.notify_str("Port isn't ready!", Color::Red);
                     return Ok(());
@@ -3003,21 +3041,18 @@ impl App {
                 Defmt::VISIBLE_FIELDS
                     }
                 };
+                items + (1 + POPUP_MENU_SELECTOR_COUNT) // Subcategory selector + Main popup selector
+            }
+            #[cfg(feature = "espflash")]
+            Popup::EspFlash => {
+                // TODO proper scrollbar for espflash profiles
+                let items = esp::ESPFLASH_BUTTON_COUNT + self.espflash.len();
                 items + POPUP_MENU_SELECTOR_COUNT
             }
-            #[cfg(any(feature = "espflash", feature = "macros"))]
-            Popup::ToolMenu(tool) => {
-                let items = match tool {
-                    #[cfg(feature = "macros")]
-                    ToolMenu::Macros => {
-                        1 + // Macros' category selector
-                    self.macros.visible_len()
-                    }
-
-                    #[cfg(feature = "espflash")]
-                    // TODO proper scrollbar for espflash profiles
-                    ToolMenu::EspFlash => esp::ESPFLASH_BUTTON_COUNT + self.espflash.len(),
-                };
+            #[cfg(feature = "macros")]
+            Popup::Macros => {
+                let items = 1 + // Macros' category selector
+            self.macros.visible_len();
                 items + POPUP_MENU_SELECTOR_COUNT
             }
             Popup::DisconnectPrompt => <DisconnectPrompt as VariantArray>::VARIANTS.len(),
@@ -3053,24 +3088,24 @@ impl App {
         match (popup, raw_scroll) {
             // Menu selectors active
             (_, 0) => None,
-            (_, 1) => None,
+            // (_, 1) => None,
             #[cfg(feature = "macros")]
             // Macro Categories selector active
-            (Popup::ToolMenu(ToolMenu::Macros), POPUP_MENU_SELECTOR_COUNT) => None,
+            (Popup::Macros, POPUP_MENU_SELECTOR_COUNT) => None,
 
             // Normal settings menus
             // Just correct for the category selector
+            (Popup::SettingsMenu(_), POPUP_MENU_SELECTOR_COUNT) => None,
+
             (Popup::SettingsMenu(SettingsMenu::SerialPort), _)
             | (Popup::SettingsMenu(SettingsMenu::Rendering), _)
             | (Popup::SettingsMenu(SettingsMenu::Behavior), _) => {
-                Some(self.popup_menu_scroll - POPUP_MENU_SELECTOR_COUNT)
+                Some(self.popup_menu_scroll - (1 + POPUP_MENU_SELECTOR_COUNT))
             }
 
             #[cfg(feature = "macros")]
             // Macros being selected
-            (Popup::ToolMenu(ToolMenu::Macros), _) => {
-                Some(raw_scroll - (1 + POPUP_MENU_SELECTOR_COUNT))
-            }
+            (Popup::Macros, _) => Some(raw_scroll - (1 + POPUP_MENU_SELECTOR_COUNT)),
 
             #[cfg(feature = "logging")]
             // Logging settings and sync button
@@ -3080,16 +3115,14 @@ impl App {
 
             #[cfg(feature = "espflash")]
             // espflash user profiles
-            (Popup::ToolMenu(ToolMenu::EspFlash), _)
+            (Popup::EspFlash, _)
                 if raw_scroll >= esp::ESPFLASH_BUTTON_COUNT + POPUP_MENU_SELECTOR_COUNT =>
             {
                 Some(raw_scroll - (esp::ESPFLASH_BUTTON_COUNT + POPUP_MENU_SELECTOR_COUNT))
             }
             #[cfg(feature = "espflash")]
             // espflash pre-set action buttons
-            (Popup::ToolMenu(ToolMenu::EspFlash), _) => {
-                Some(raw_scroll - POPUP_MENU_SELECTOR_COUNT)
-            }
+            (Popup::EspFlash, _) => Some(raw_scroll - POPUP_MENU_SELECTOR_COUNT),
 
             #[cfg(feature = "defmt")]
             // defmt settings
@@ -3173,8 +3206,10 @@ impl App {
         };
         match popup {
             Popup::SettingsMenu(_) => self.render_popup_menus(frame, area),
-            #[cfg(any(feature = "espflash", feature = "macros"))]
-            Popup::ToolMenu(_) => self.render_popup_menus(frame, area),
+            #[cfg(feature = "espflash")]
+            Popup::EspFlash => self.render_popup_menus(frame, area),
+            #[cfg(feature = "macros")]
+            Popup::Macros => self.render_popup_menus(frame, area),
             Popup::CurrentKeybinds => {
                 let mut scroll: u16 = self.popup_menu_scroll as u16;
                 show_keybinds(&self.keybinds, &mut scroll, frame, area, self);
@@ -3397,13 +3432,13 @@ impl App {
             Some(Popup::SettingsMenu(SettingsMenu::Behavior)) => Color::Blue,
             Some(Popup::SettingsMenu(SettingsMenu::SerialPort)) => Color::Cyan,
             #[cfg(feature = "espflash")]
-            Some(Popup::ToolMenu(ToolMenu::EspFlash)) => Color::Magenta,
+            Some(Popup::EspFlash) => Color::Magenta,
             #[cfg(feature = "defmt")]
             Some(Popup::SettingsMenu(SettingsMenu::Defmt)) => Color::LightRed,
             #[cfg(feature = "logging")]
             Some(Popup::SettingsMenu(SettingsMenu::Logging)) => Color::Yellow,
             #[cfg(feature = "macros")]
-            Some(Popup::ToolMenu(ToolMenu::Macros)) => Color::Green,
+            Some(Popup::Macros) => Color::Green,
             _ => return,
         };
 
@@ -3431,14 +3466,11 @@ impl App {
         // let title_lines = ;
         let mut menu_selector_state = SingleLineSelectorState::new();
         menu_selector_state.active = self.popup_menu_scroll == 0;
-        let popup_menu_title_selector = SingleLineSelector::new([
-            "Settings".italic(),
-            #[cfg(any(feature = "espflash", feature = "macros"))]
-            "Tools".italic(),
-        ])
-        .with_next_symbol(">")
-        .with_prev_symbol("<")
-        .with_space_padding(true);
+        let owned_entries_iter = <MainPopup as VariantNames>::VARIANTS.iter().copied();
+        let popup_menu_title_selector = SingleLineSelector::new(owned_entries_iter)
+            .with_next_symbol(">")
+            .with_prev_symbol("<")
+            .with_space_padding(true);
 
         let menu_category_selector_area = {
             let mut line = center_area;
@@ -3448,8 +3480,16 @@ impl App {
 
         let category_index = match &self.popup {
             Some(Popup::SettingsMenu(_)) => 0,
-            #[cfg(any(feature = "espflash", feature = "macros"))]
-            Some(Popup::ToolMenu(_)) => 1,
+
+            #[cfg(all(feature = "macros", not(feature = "espflash")))]
+            Some(Popup::Macros) => 1,
+            #[cfg(all(feature = "espflash", not(feature = "macros")))]
+            Some(Popup::EspFlash) => 1,
+            #[cfg(all(feature = "espflash", feature = "macros"))]
+            Some(Popup::Macros) => 1,
+            #[cfg(all(feature = "espflash", feature = "macros"))]
+            Some(Popup::EspFlash) => 2,
+
             _ => unreachable!("popup isnt a settings or tool menu"),
         };
 
@@ -3463,8 +3503,12 @@ impl App {
             Some(Popup::SettingsMenu(_)) => {
                 self.render_settings_popup(frame, block.inner(center_area), popup_color)
             }
-            #[cfg(any(feature = "espflash", feature = "macros"))]
-            Some(Popup::ToolMenu(_)) => {
+            #[cfg(feature = "espflash")]
+            Some(Popup::EspFlash) => {
+                self.render_tool_popup(frame, block.inner(center_area), popup_color)
+            }
+            #[cfg(feature = "macros")]
+            Some(Popup::Macros) => {
                 self.render_tool_popup(frame, block.inner(center_area), popup_color)
             }
             _ => unreachable!("popup isnt a settings or tool menu"),
@@ -3489,11 +3533,11 @@ impl App {
             .with_selected(selected)
             .with_selected_column(Some(usize::MAX));
 
-        let setting_menu_selector =
-            SingleLineSelector::new(<SettingsMenu as VariantNames>::VARIANTS.iter().copied())
-                .with_next_symbol(">")
-                .with_prev_symbol("<")
-                .with_space_padding(true);
+        let owned_entries_iter = <SettingsMenu as VariantNames>::VARIANTS.iter().copied();
+        let setting_menu_selector = SingleLineSelector::new(owned_entries_iter)
+            .with_next_symbol(">")
+            .with_prev_symbol("<")
+            .with_space_padding(true);
         let selector_area = {
             let mut line = center_inner_area;
             line.height = 1;
@@ -3903,8 +3947,12 @@ impl App {
         center_inner_area: Rect,
         block_color: Color,
     ) {
-        let Some(Popup::ToolMenu(popup)) = &self.popup else {
-            return;
+        let popup = match &self.popup {
+            #[cfg(feature = "espflash")]
+            Some(p @ Popup::EspFlash) => p,
+            #[cfg(feature = "macros")]
+            Some(p @ Popup::Macros) => p,
+            _ => return,
         };
 
         let mut menu_selector_state = SingleLineSelectorState::new();
@@ -3914,28 +3962,19 @@ impl App {
             .with_selected(selected)
             .with_selected_column(Some(usize::MAX));
 
-        let popup_menu_title_selector =
-            SingleLineSelector::new(<ToolMenu as VariantNames>::VARIANTS.iter().copied())
-                .with_next_symbol(">")
-                .with_prev_symbol("<")
-                .with_space_padding(true);
-        let selector_area = {
-            let mut line = center_inner_area;
-            line.height = 1;
-            line
-        };
+        // let selector_area = {
+        //     let mut line = center_inner_area;
+        //     line.height = 1;
+        //     line
+        // };
+        let temp = MainPopup::from(popup);
         menu_selector_state.select(
-            <ToolMenu as VariantArray>::VARIANTS
+            <MainPopup as VariantArray>::VARIANTS
                 .iter()
-                .position(|v| v == popup)
+                .position(|v| v == &temp)
                 .unwrap(),
         );
-        menu_selector_state.active = self.popup_menu_scroll == 1;
-        frame.render_stateful_widget(
-            &popup_menu_title_selector,
-            selector_area,
-            &mut menu_selector_state,
-        );
+        // menu_selector_state.active = self.popup_menu_scroll == 1;
 
         #[cfg(feature = "espflash")]
         let bins_area = {
@@ -3968,8 +4007,8 @@ impl App {
         #[cfg(feature = "macros")]
         let macros_table_area = {
             let mut area = center_inner_area;
-            area.height = area.height.saturating_sub(5);
-            area.y += 3;
+            area.height = area.height.saturating_sub(3);
+            area.y += 1;
             area
         };
 
@@ -3989,55 +4028,39 @@ impl App {
 
         let height = match popup {
             #[cfg(feature = "macros")]
-            ToolMenu::Macros => macros_table_area.height,
+            Popup::Macros => macros_table_area.height,
             #[cfg(feature = "espflash")]
-            ToolMenu::EspFlash => bins_area.height,
+            Popup::EspFlash => bins_area.height,
+            _ => unreachable!(),
+        };
+
+        let main_popup_selector_max_chars = {
+            let owned_entries_iter = <MainPopup as VariantNames>::VARIANTS.iter().copied();
+            let popup_menu_title_selector = SingleLineSelector::new(owned_entries_iter)
+                .with_next_symbol(">")
+                .with_prev_symbol("<")
+                .with_space_padding(true);
+
+            popup_menu_title_selector.max_chars()
         };
 
         match popup {
             #[cfg(feature = "macros")]
-            ToolMenu::Macros => {
-                let new_separator = {
-                    let mut area = center_inner_area;
-                    area.height = 1;
-                    area.y += 2;
-                    area
-                };
+            Popup::Macros => {
+                use crate::traits::StrAsOption;
+
                 let categories_area = {
                     let mut area = center_inner_area;
                     area.height = 1;
-                    area.y += 1;
                     area
                 };
-                frame.render_widget(
-                    Block::new()
-                        .borders(Borders::TOP)
-                        .border_style(Style::from(block_color)),
-                    new_separator,
-                );
 
-                if self.macros.search_input.value().is_empty() {
-                    let categories_iter = ["Has Bytes", "Strings Only", "All Macros"]
-                        .iter()
-                        .copied()
-                        .map(String::from)
-                        .map(Line::raw)
-                        .chain(self.macros.categories().map(String::from).map(Line::raw));
-                    let categories_selector = SingleLineSelector::new(categories_iter)
-                        .with_next_symbol(">")
-                        .with_prev_symbol("<")
-                        .with_size_hint(popup_menu_title_selector.max_chars());
-                    self.macros.categories_selector.active = self.popup_menu_scroll == 2;
-                    frame.render_stateful_widget(
-                        &categories_selector,
-                        categories_area,
-                        &mut self.macros.categories_selector,
-                    );
-                } else {
-                    // Get the search text
-                    let search_text = self.macros.search_input.value();
-                    // Center the search line in the area
-                    let search_line = Line::raw(search_text).centered();
+                // Get the search text
+                if let Some(search_text) = self.macros.search_input.value().as_option() {
+                    // Pad out the search text line in the area
+                    let search_text =
+                        format!("  [ {search_text: <main_popup_selector_max_chars$} ]  ");
+                    let search_line = Line::from(search_text).centered().reset_style();
 
                     let width = categories_area.width.max(1).saturating_sub(1); // So the cursor doesn't bleed off the edge
 
@@ -4060,7 +4083,26 @@ impl App {
                     let centered_offset = pad_left as i32 + (cursor_pos as i32 - scroll as i32);
                     let cursor_x = categories_area.x + centered_offset.max(0) as u16;
 
-                    frame.set_cursor_position((cursor_x + 1, categories_area.y));
+                    frame.set_cursor_position((cursor_x + 1 + (4), categories_area.y));
+                } else {
+                    let categories_iter = ["Has Bytes", "Strings Only", "All Macros"]
+                        .iter()
+                        .copied()
+                        .map(String::from)
+                        .map(Line::raw)
+                        .chain(self.macros.categories().map(String::from).map(Line::raw));
+
+                    let categories_selector = SingleLineSelector::new(categories_iter)
+                        .with_next_symbol(">")
+                        .with_prev_symbol("<")
+                        .with_space_padding(true)
+                        .with_size_hint(main_popup_selector_max_chars);
+                    self.macros.categories_selector.active = self.popup_menu_scroll == 1;
+                    frame.render_stateful_widget(
+                        &categories_selector,
+                        categories_area,
+                        &mut self.macros.categories_selector,
+                    );
                 }
 
                 let table = self
@@ -4119,7 +4161,7 @@ impl App {
                 }
             }
             #[cfg(feature = "espflash")]
-            ToolMenu::EspFlash => {
+            Popup::EspFlash => {
                 let new_separator = {
                     let mut area = center_inner_area;
                     area.height = 1;
@@ -4245,6 +4287,7 @@ impl App {
                     new_separator,
                 );
             }
+            _ => unreachable!(),
         }
         // TODO
         // shrink scrollbar and change content length based on if its for a submenu or not
@@ -4982,8 +5025,10 @@ impl App {
 
         let has_scrollable_text = match self.popup.as_ref().unwrap() {
             Popup::SettingsMenu(_) => true,
-            #[cfg(any(feature = "espflash", feature = "macros"))]
-            Popup::ToolMenu(_) => true,
+            #[cfg(feature = "espflash")]
+            Popup::EspFlash => true,
+            #[cfg(feature = "macros")]
+            Popup::Macros => true,
             _ => false,
         };
 
@@ -5001,9 +5046,9 @@ impl App {
             ShowPopupAction::ShowBehavior => Popup::SettingsMenu(SettingsMenu::Behavior),
             ShowPopupAction::ShowRendering => Popup::SettingsMenu(SettingsMenu::Rendering),
             #[cfg(feature = "macros")]
-            ShowPopupAction::ShowMacros => Popup::ToolMenu(ToolMenu::Macros),
+            ShowPopupAction::ShowMacros => Popup::Macros,
             #[cfg(feature = "espflash")]
-            ShowPopupAction::ShowEspFlash => Popup::ToolMenu(ToolMenu::EspFlash),
+            ShowPopupAction::ShowEspFlash => Popup::EspFlash,
             #[cfg(feature = "logging")]
             ShowPopupAction::ShowLogging => Popup::SettingsMenu(SettingsMenu::Logging),
             #[cfg(feature = "defmt")]
@@ -5034,14 +5079,9 @@ impl App {
         self.popup_menu_scroll = 0;
         self.popup_hint_scroll = -2;
     }
-    fn cycle_sub_menu(&mut self, next: bool) {
+    fn cycle_settings_menu(&mut self, next: bool) {
         match &mut self.popup {
             Some(Popup::SettingsMenu(popup)) => {
-                let mut new_popup = if next { popup.next() } else { popup.prev() };
-                std::mem::swap(popup, &mut new_popup);
-            }
-            #[cfg(any(feature = "espflash", feature = "macros"))]
-            Some(Popup::ToolMenu(popup)) => {
                 let mut new_popup = if next { popup.next() } else { popup.prev() };
                 std::mem::swap(popup, &mut new_popup);
             }
@@ -5050,18 +5090,39 @@ impl App {
 
         self.refresh_scratch();
         self.popup_hint_scroll = -2;
-        #[cfg(feature = "macros")]
-        self.macros.search_input.reset();
     }
     #[cfg(any(feature = "espflash", feature = "macros"))]
-    fn cycle_menu_type(&mut self) {
+    fn cycle_menu_type(&mut self, next: bool) {
         match &self.popup {
-            Some(Popup::SettingsMenu(_)) => self.popup.insert(Popup::ToolMenu(
-                <ToolMenu as VariantArray>::VARIANTS[0].clone(),
-            )),
-            Some(Popup::ToolMenu(_)) => self.popup.insert(Popup::SettingsMenu(
-                <SettingsMenu as VariantArray>::VARIANTS[0].clone(),
-            )),
+            Some(p @ Popup::SettingsMenu(_)) => {
+                let incoming = MainPopup::from(p);
+                let incoming = if next {
+                    incoming.next()
+                } else {
+                    incoming.prev()
+                };
+                _ = self.popup.insert(incoming.into());
+            }
+            #[cfg(feature = "espflash")]
+            Some(p @ Popup::EspFlash) => {
+                let incoming = MainPopup::from(p);
+                let incoming = if next {
+                    incoming.next()
+                } else {
+                    incoming.prev()
+                };
+                _ = self.popup.insert(incoming.into());
+            }
+            #[cfg(feature = "macros")]
+            Some(p @ Popup::Macros) => {
+                let incoming = MainPopup::from(p);
+                let incoming = if next {
+                    incoming.next()
+                } else {
+                    incoming.prev()
+                };
+                _ = self.popup.insert(incoming.into());
+            }
             _ => return,
         };
 

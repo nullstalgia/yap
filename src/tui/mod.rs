@@ -16,7 +16,7 @@ pub mod single_line_selector;
 pub use show_keybinds::show_keybinds;
 
 /// Popup category selectors count.
-pub const POPUP_MENU_SELECTOR_COUNT: usize = 2;
+pub const POPUP_MENU_SELECTOR_COUNT: usize = 1;
 
 // /// Returns a `Rect` with the provided percentage of the parent `Rect` and centered.
 // pub fn centered_rect_ratio(percent_x: u16, percent_y: u16, parent: Rect) -> Rect {

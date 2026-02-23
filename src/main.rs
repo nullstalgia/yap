@@ -31,6 +31,7 @@ fn main() -> color_eyre::Result<()> {
 // build.rs to get version of espflash and defmt
 
 // General TODOs:
+// Minimize amounts of #[cfg] all around
 // Mouse select in line mode?
 //   and in Hex view to show make finding bytes easier
 // Notification History
