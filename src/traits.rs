@@ -109,6 +109,17 @@ impl FirstChars for str {
     }
 }
 
+/// Trait that provides a single method to get the first `N` "Unicode Scalar Values" from a string slice.
+pub trait StrAsOption {
+    /// If the string slice refers to an empty slice, return `None`, otherwise return the contained string.
+    fn as_option(&self) -> Option<&str>;
+}
+impl StrAsOption for str {
+    fn as_option(&self) -> Option<&str> {
+        if self.is_empty() { None } else { Some(&self) }
+    }
+}
+
 #[allow(dead_code)] // Not using the bottom two methods, but I don't wish to comment them out/remove them yet.
 pub trait LineHelpers<'a> {
     /// Removes all tabs, carriage returns, newlines, and control characters from all spans in the line.
