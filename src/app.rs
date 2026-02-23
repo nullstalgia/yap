@@ -4034,20 +4034,19 @@ impl App {
             _ => unreachable!(),
         };
 
-        let main_popup_selector_max_chars = {
-            let owned_entries_iter = <MainPopup as VariantNames>::VARIANTS.iter().copied();
-            let popup_menu_title_selector = SingleLineSelector::new(owned_entries_iter)
-                .with_next_symbol(">")
-                .with_prev_symbol("<")
-                .with_space_padding(true);
-
-            popup_menu_title_selector.max_chars()
-        };
-
         match popup {
             #[cfg(feature = "macros")]
             Popup::Macros => {
                 use crate::traits::StrAsOption;
+                let main_popup_selector_max_chars = {
+                    let owned_entries_iter = <MainPopup as VariantNames>::VARIANTS.iter().copied();
+                    let popup_menu_title_selector = SingleLineSelector::new(owned_entries_iter)
+                        .with_next_symbol(">")
+                        .with_prev_symbol("<")
+                        .with_space_padding(true);
+
+                    popup_menu_title_selector.max_chars()
+                };
 
                 let categories_area = {
                     let mut area = center_inner_area;
