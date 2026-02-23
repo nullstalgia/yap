@@ -110,12 +110,12 @@ impl FirstChars for str {
 }
 
 /// Trait that provides a single method to get the first `N` "Unicode Scalar Values" from a string slice.
-#[cfg(any(feature = "espflash", feature = "macros"))]
+#[cfg(feature = "macros")]
 pub trait StrAsOption {
     /// If the string slice refers to an empty slice, return `None`, otherwise return the contained string.
     fn as_option(&self) -> Option<&str>;
 }
-#[cfg(any(feature = "espflash", feature = "macros"))]
+#[cfg(feature = "macros")]
 impl StrAsOption for str {
     fn as_option(&self) -> Option<&str> {
         if self.is_empty() { None } else { Some(self) }
