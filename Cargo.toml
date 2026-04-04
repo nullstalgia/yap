@@ -34,8 +34,8 @@ yap-full = ["yap-lite", "espflash", "defmt-watch"]
 yap-lite = ["logging", "macros"]
 
 [dependencies]
-ansi-to-tui = { git = "https://github.com/nullstalgia/ansi-to-tui", branch = "lossy_and_line_endings" }
-# ansi-to-tui = { path = "../ansi-to-tui" }
+# ansi-to-tui = { git = "https://github.com/nullstalgia/ansi-to-tui", branch = "lossy_and_line_endings" }
+ansi-to-tui = { path = "../ansi-to-tui" }
 # ansi-to-tui = "7.0.0"
 arboard = { version = "3.6.0", features = ["wayland-data-control"] }
 arc-swap = "1.7.1"
@@ -48,9 +48,9 @@ color-eyre = "0.6.3"
 # color-eyre = { path = "/home/tony/git/eyre/color-eyre/" }
 compact_str = { version = "0.9.0", features = ["serde"] }
 # crokey = { path = "../crokey", features = ["serde"] }
-crokey = { version = "=1.1.2", features = ["serde"] }
+crokey = { version = "=1.4.0", features = ["serde"] }
 crossbeam = "0.8.4"
-crossterm = "=0.28.1"
+crossterm = "0.29"
 # defmt-decoder = { version = "1.0.0", optional = true }
 # these are slightly more updated than the versions on crates.io
 defmt-decoder = { git = "https://github.com/knurling-rs/defmt", package = "defmt-decoder", optional = true, rev = "d52b9908c175497d46fc527f4f8dfd6278744f09" }
@@ -65,7 +65,7 @@ espflash = { version = "=4.3.0", optional = true, default-features = false, feat
 # espflash = { path = "../espflash/espflash", optional = true, features = ["serialport"], default-features = false }
 fs-err = "3.1.0"
 hex = "0.4.3"
-http = "1.3.1"
+http = "1.3.1" # TODO make optional
 human-panic = "2.0.2"
 indexmap = { version = "2.9.0", features = ["serde"] }
 # int-enum = { git = "https://github.com/nullstalgia/int-enum-rs", branch = "feat/colors-and-discriminators" }
@@ -84,11 +84,12 @@ num-integer = "0.1.46"
 opener = "0.8.2"
 # log = "0.4.25"
 # num_enum = "0.7.3"
-ratatui = { version = "0.29.0", features = ["unstable-rendered-line-info"] }
-ratatui-explorer = { version = "0.2.1", optional = true }
-ratatui-macros = "0.6.0"
+ratatui = { version = "0.30.0", features = ["unstable-rendered-line-info"] }
+ratatui-explorer = { version = "0.3.0", optional = true }
+ratatui-macros = "0.7.0"
+ratatui-widgets = "0.3.0"
 regex = "1.11.1"
-reqwest = "0.12.22"
+reqwest = "0.12.22" # TODO make optional
 # regex-lite = "0.1.6"
 rolling-file = "0.2.0"
 self-replace = { version = "1.5.0", optional = true }
@@ -104,8 +105,8 @@ strum = { version = "0.27", features = ["derive"] }
 takeable = "0.2.2"
 # TODO update once ratatui's exposed crossterm updates
 # but these work for now.
-terminput = "0.4.2"
-terminput-crossterm = "0.1.2"
+terminput = "0.5"
+terminput-crossterm = "0.4"
 textwrap = "0.16.2"
 thiserror = "2.0.12"
 tinyvec = { version = "1.9.0", features = ["std"] }
@@ -113,8 +114,9 @@ toml = "0.8.21"
 tracing = { version = "0.1.41", features = ["log"] }
 tracing-appender = "0.2.3"
 tracing-subscriber = { version = "0.3.19", features = ["chrono", "env-filter"] }
-tui-big-text = "0.7.1"
-tui-input = "0.14"
+tui-big-text = "0.8"
+# tui-input = "0.15"
+tui-input = { path = "../tui-input" }
 # unescaper = "0.1.5"
 unicode-width = "0.2.0"
 virtual-serialport = "0.1.3"

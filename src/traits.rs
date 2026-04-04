@@ -5,7 +5,7 @@ use std::{borrow::Cow, collections::BTreeMap, ops::Range};
 use crate::buffer::{HEX_UPPER, LineEnding};
 use itertools::Itertools;
 use ratatui::{
-    style::{Style, Stylize},
+    style::Style,
     text::{Line, Span},
 };
 

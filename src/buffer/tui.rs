@@ -334,10 +334,15 @@ impl Buffer {
         self.styled_lines.rx.len()
     }
 
-    pub fn update_terminal_size(
+    pub fn update_terminal_size<B>(
         &mut self,
-        terminal: &mut ratatui::Terminal<impl ratatui::prelude::Backend>,
-    ) -> std::io::Result<()> {
+        terminal: &mut ratatui::Terminal<B>,
+    ) -> std::io::Result<()>
+    where
+        B: Backend,
+        <B as ratatui::backend::Backend>::Error: Sync + Send + 'static,
+        std::io::Error: From<<B as ratatui::backend::Backend>::Error>,
+    {
         self.last_terminal_size = {
             let mut terminal_size = terminal.size()?;
             // `2` is the lines from the repeating_pattern_widget and the input buffer.
@@ -561,7 +566,7 @@ impl Buffer {
         if self.combined_height() > hex_area.height as usize {
             let vert_block = Block::new()
                 .borders(Borders::LEFT)
-                .border_style(Style::new().reset());
+                .border_style(Style::reset());
 
             vert_block.render(
                 Rect {

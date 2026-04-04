@@ -585,7 +585,12 @@ impl App {
         self.state == RunningState::Running
     }
     // All prep has been complete, begin main loop.
-    pub fn run(&mut self, mut terminal: Terminal<impl Backend>) -> Result<()> {
+    pub fn run<B>(&mut self, mut terminal: Terminal<B>) -> Result<()>
+    where
+        B: Backend,
+        <B as ratatui::backend::Backend>::Error: Sync + Send + 'static,
+        std::io::Error: From<<B as ratatui::backend::Backend>::Error>,
+    {
         if self.allow_first_time_setup {
             self.first_time_setup();
         }
@@ -695,7 +700,12 @@ impl App {
         }
         final_app_result
     }
-    fn handle_event(&mut self, event: Event, terminal: &mut Terminal<impl Backend>) -> Result<()> {
+    fn handle_event<B>(&mut self, event: Event, terminal: &mut Terminal<B>) -> Result<()>
+    where
+        B: Backend,
+        <B as ratatui::backend::Backend>::Error: Sync + Send + 'static,
+        std::io::Error: From<<B as ratatui::backend::Backend>::Error>,
+    {
         match event {
             Event::Quit => self.shutdown(),
 
@@ -3158,7 +3168,11 @@ impl App {
 
         self.popup_menu_scroll = self.current_popup_selectable_item_count().saturating_sub(1);
     }
-    pub fn draw(&mut self, terminal: &mut Terminal<impl Backend>) -> Result<()> {
+    pub fn draw<B>(&mut self, terminal: &mut Terminal<B>) -> Result<()>
+    where
+        B: Backend,
+        <B as ratatui::backend::Backend>::Error: Sync + Send + 'static,
+    {
         // let start = Instant::now();
         terminal.draw(|frame| self.render_app(frame))?;
         // debug!("A4: {:?}", start.elapsed());
@@ -3325,7 +3339,7 @@ impl App {
             }
             Popup::SerialConnectionFailed(error) => {
                 let title = "Error connecting to port!";
-                let title_line = Line::styled(title, Style::new().reset());
+                let title_line = Line::styled(title, Style::reset());
                 let block = Block::bordered()
                     .border_style(Style::new().red())
                     .title_top(title_line)
@@ -3592,7 +3606,7 @@ impl App {
             bottom_sep_line_area,
         );
 
-        let scrollbar_style = Style::new().reset();
+        let scrollbar_style = Style::reset();
 
         let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
             .style(scrollbar_style)
@@ -4916,7 +4930,7 @@ impl App {
             frame.render_widget(Line::from(more_options_button).centered(), more_options);
         }
 
-        let scrollbar_style = Style::new().reset();
+        let scrollbar_style = Style::reset();
 
         let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
             .style(scrollbar_style)

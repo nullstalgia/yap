@@ -3,7 +3,7 @@ use std::{borrow::Cow, ops::Range};
 use chrono::{DateTime, Local};
 use compact_str::{CompactString, format_compact};
 use ratatui::{
-    style::{Style, Stylize},
+    style::Style,
     text::{Line, Span},
     widgets::{Paragraph, Wrap},
 };

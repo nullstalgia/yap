@@ -4,7 +4,7 @@ use crokey::crossterm::event::KeyCode;
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Rect},
-    style::{Color, Style, Stylize},
+    style::{Color, Style},
     widgets::{Block, Borders, Clear, Row, Table, TableState},
 };
 use ratatui_macros::{row, span};
@@ -204,7 +204,7 @@ pub trait PromptTable: VariantNames + VariantArray + EnumProperty + Into<u8> + T
             .borders(Borders::ALL)
             .title_alignment(Alignment::Center)
             .border_style(border_style)
-            .title_style(Style::new().reset());
+            .title_style(Style::reset());
         let block = if let Some(text) = top {
             block.title_top(text)
         } else {
