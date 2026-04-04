@@ -1221,7 +1221,7 @@ impl App {
                     let current = file_explorer.current();
                     let is_file = current.is_file();
                     if is_file {
-                        let path_buf = current.path().to_owned();
+                        let path_buf = current.path.clone();
 
                         let Ok(elf_path) = camino::Utf8PathBuf::from_path_buf(path_buf) else {
                             self.notifs
@@ -3228,6 +3228,8 @@ impl App {
             }
             #[cfg(feature = "defmt")]
             Popup::DefmtNewElf(file_explorer) => {
+                use ratatui::widgets::FrameExt;
+
                 let area = centered_rect_size(
                     Size {
                         width: 70,
@@ -3236,7 +3238,7 @@ impl App {
                     area,
                 );
                 frame.render_widget(Clear, area);
-                frame.render_widget(&file_explorer.widget(), area);
+                frame.render_widget_ref(file_explorer.widget(), area);
             }
             #[cfg(feature = "defmt")]
             Popup::DefmtRecentElf => {
@@ -4033,7 +4035,7 @@ impl App {
             line_area,
         );
 
-        let scrollbar_style = Style::new().reset();
+        let scrollbar_style = Style::reset();
 
         let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
             .style(scrollbar_style)
@@ -5366,7 +5368,7 @@ pub fn render_scrolling_line<'a, T: Into<Line<'a>>>(
 
 #[cfg(feature = "defmt")]
 fn create_file_explorer() -> Result<FileExplorer, std::io::Error> {
-    use ratatui_explorer::FileExplorer;
+    use ratatui_explorer::FileExplorerBuilder;
 
     let explorer_theme = ratatui_explorer::Theme::default()
         .with_scroll_padding(1)
@@ -5381,6 +5383,6 @@ fn create_file_explorer() -> Result<FileExplorer, std::io::Error> {
     //     .map(|base_dirs| base_dirs.home_dir())
     //     .unwrap_or(&root_path);
 
-    FileExplorer::with_theme(explorer_theme)
+    FileExplorerBuilder::build_with_theme(explorer_theme)
     // .and_then(|mut e| e.set_cwd(starting_dir).map(|_| e))
 }

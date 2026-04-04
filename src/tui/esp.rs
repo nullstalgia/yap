@@ -613,7 +613,7 @@ impl EspFlashHelper {
             .title_top(
                 Line::raw(block_title)
                     .centered()
-                    .all_spans_styled(Style::new().reset()),
+                    .all_spans_styled(Style::reset()),
             );
 
         frame.render_widget(&block, center_area);

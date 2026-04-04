@@ -4981,7 +4981,8 @@ dependencies = [
 
 [[package]]
 name = "tui-input"
-version = "0.15.0"
+version = "0.15.1"
+source = "git+https://github.com/nullstalgia/tui-input?branch=bugfix%2Fwindows-altgr#d8dc1de585079ad5a576979a16dec1790473f36f"
 dependencies = [
  "ratatui",
  "unicode-width 0.2.2",

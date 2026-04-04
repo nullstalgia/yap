@@ -116,7 +116,7 @@ tracing-appender = "0.2.3"
 tracing-subscriber = { version = "0.3.19", features = ["chrono", "env-filter"] }
 tui-big-text = "0.8"
 # tui-input = "0.15"
-tui-input = { path = "../tui-input" }
+tui-input = { git = "https://github.com/nullstalgia/tui-input", branch = "bugfix/windows-altgr" }
 # unescaper = "0.1.5"
 unicode-width = "0.2.0"
 virtual-serialport = "0.1.3"
