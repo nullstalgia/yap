@@ -34,8 +34,8 @@ yap-full = ["yap-lite", "espflash", "defmt-watch"]
 yap-lite = ["logging", "macros"]
 
 [dependencies]
-# ansi-to-tui = { git = "https://github.com/nullstalgia/ansi-to-tui", branch = "lossy_and_line_endings" }
-ansi-to-tui = { path = "../ansi-to-tui" }
+ansi-to-tui = { git = "https://github.com/nullstalgia/ansi-to-tui", branch = "lossy_and_line_endings" }
+# ansi-to-tui = { path = "../ansi-to-tui" }
 # ansi-to-tui = "7.0.0"
 arboard = { version = "3.6.0", features = ["wayland-data-control"] }
 arc-swap = "1.7.1"
