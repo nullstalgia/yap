@@ -1,2 +1,6 @@
+# cargo build dir
 /target
 .env.dev
+
+# nix build dir
+/result
