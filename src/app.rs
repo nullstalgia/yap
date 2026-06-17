@@ -4687,11 +4687,11 @@ impl App {
 
                 let scroll = visual_scroll(adj_cursor, width as usize, chars_iter) as u16;
 
-                frame.render_widget(input_para.scroll((0, scroll as u16)), input_area);
+                frame.render_widget(input_para.scroll((0, scroll)), input_area);
                 if should_position_cursor {
                     frame.set_cursor_position((
                         // Put cursor past the end of the input text
-                        input_area.x + ((adj_cursor as u16).max(scroll) - scroll) as u16,
+                        input_area.x + ((adj_cursor as u16).max(scroll) - scroll),
                         input_area.y,
                     ));
                 }
