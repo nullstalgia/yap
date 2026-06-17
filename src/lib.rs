@@ -44,6 +44,7 @@ mod settings;
 mod text_input;
 mod traits;
 mod tui;
+#[cfg(feature = "update-check")]
 mod updates;
 
 static CONFIG_PARENT_PATH_CELL: OnceLock<Utf8PathBuf> = OnceLock::new();

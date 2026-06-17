@@ -19,7 +19,7 @@ use ratatui::{
     layout::{Constraint, Layout, Margin, Offset, Rect, Size},
     prelude::Backend,
     style::{Color, Modifier, Style, Stylize},
-    text::{Line, Span},
+    text::{Line, Span, ToLine},
     widgets::{
         Block, Borders, Clear, HighlightSpacing, Paragraph, Row, Scrollbar, ScrollbarOrientation,
         ScrollbarState, Table, TableState,
@@ -65,8 +65,10 @@ use crate::{
         show_keybinds,
         single_line_selector::{SingleLineSelector, SingleLineSelectorState},
     },
-    updates::{UpdateBeginPrompt, UpdateCheckConsentPrompt, UpdateHandle},
 };
+
+#[cfg(feature = "update-check")]
+use crate::updates::{UpdateBeginPrompt, UpdateCheckConsentPrompt, UpdateEvent, UpdateHandle};
 
 #[cfg(all(windows, feature = "self-replace"))]
 use crate::updates::UpdateLaunchPrompt;
@@ -106,8 +108,6 @@ use crate::{
     tui::esp::{self, EspFlashHelper},
 };
 
-use crate::updates::UpdateEvent;
-
 #[derive(Clone, Debug)]
 pub enum CrosstermEvent {
     Resize,
@@ -145,6 +145,7 @@ pub enum Event {
     /// User selected a defmt ELF from an OS-provided file picker.
     // TODO have error too?
     DefmtFromFilePicker(camino::Utf8PathBuf),
+    #[cfg(feature = "update-check")]
     /// Update notifications and progress.
     Updates(UpdateEvent),
     /// Begin closing app gracefully.
@@ -250,8 +251,9 @@ pub enum Popup {
     IgnoreByName(String),
     SerialConnectionFailed(String),
 
+    #[cfg(feature = "update-check")]
     UpdateCheckConsentPrompt,
-
+    #[cfg(feature = "update-check")]
     UpdateBeginPrompt,
     #[cfg(all(windows, feature = "self-replace"))]
     UpdateLaunchPrompt,
@@ -407,7 +409,9 @@ pub struct App {
     /// thus the main menu hint saying "we're connected and logging" should be hidden.
     tcp_log_health: Arc<TcpStreamHealth>,
 
+    #[cfg(feature = "update-check")]
     pub update_worker: UpdateHandle,
+    #[cfg(feature = "update-check")]
     pub update_found_version: Option<String>,
 
     /// If connecting directly to a port via CLI,
@@ -519,11 +523,14 @@ impl App {
             macros
         };
 
-        let update_worker = UpdateHandle::new(event_tx.clone());
-
-        if settings.updates.allow_checking_for_updates {
-            update_worker.query_latest(settings.updates.allow_pre_releases)?;
-        }
+        #[cfg(feature = "update-check")]
+        let update_worker = {
+            let update_worker = UpdateHandle::new(event_tx.clone());
+            if settings.updates.allow_checking_for_updates {
+                update_worker.query_latest(settings.updates.allow_pre_releases)?;
+            }
+            update_worker
+        };
 
         // debug!("{buffer:#?}");
         Ok(Self {
@@ -576,7 +583,9 @@ impl App {
             ctrl_c_tx,
             tcp_log_health,
 
+            #[cfg(feature = "update-check")]
             update_found_version: None,
+            #[cfg(feature = "update-check")]
             update_worker,
             allow_first_time_setup,
         })
@@ -1010,10 +1019,11 @@ impl App {
             Event::DefmtElfWatch(ElfWatchEvent::Error(err)) => {
                 self.notifs.notify_str(err, Color::Red);
             }
-
+            #[cfg(feature = "update-check")]
             Event::Updates(UpdateEvent::UpToDate) => {
                 info!("App is up-to-date!");
             }
+            #[cfg(feature = "update-check")]
             Event::Updates(UpdateEvent::UpdateFound(new)) => {
                 if new != self.settings.updates.skipped_version {
                     info!("Update found! v{new}");
@@ -1022,6 +1032,7 @@ impl App {
                     info!("Update found, but ignoring! (v{new})");
                 }
             }
+            #[cfg(feature = "update-check")]
             Event::Updates(UpdateEvent::UpdateCheckError(e)) => {
                 // TODO maybe red version number?
                 // or -> ??
@@ -1307,11 +1318,13 @@ impl App {
                     self.ignore_usb_device_prompt_choice(pressed)?;
                 }
             }
+            #[cfg(feature = "update-check")]
             (_, Some(Popup::UpdateCheckConsentPrompt)) if !is_ctrl_c(&key_event) => {
                 if let Some(pressed) = UpdateCheckConsentPrompt::from_key_code(key_event.code) {
                     self.update_check_consent_choice(pressed)?;
                 }
             }
+            #[cfg(feature = "update-check")]
             (_, Some(Popup::UpdateBeginPrompt)) if !is_ctrl_c(&key_event) => {
                 if let Some(pressed) = UpdateBeginPrompt::from_key_code(key_event.code) {
                     self.update_begin_choice(pressed)?;
@@ -1378,6 +1391,7 @@ impl App {
         match key_combo {
             // Start of _Hardcoded_ keybinds.
             key!(q) if port_selection_actions && self.popup.is_none() => self.shutdown(),
+            #[cfg(feature = "update-check")]
             key!(u)
                 if port_selection_actions
                     && self.popup.is_none()
@@ -2099,7 +2113,7 @@ impl App {
                 0 => self.select_last_popup_item(),
                 _ => self.popup_menu_scroll -= 1,
             },
-
+            #[cfg(feature = "update-check")]
             Some(Popup::UpdateCheckConsentPrompt) | Some(Popup::UpdateBeginPrompt) => {
                 match self.popup_menu_scroll {
                     0 => self.select_last_popup_item(),
@@ -2167,7 +2181,7 @@ impl App {
                 _last if self.last_popup_item_selected() => self.popup_menu_scroll = 0,
                 _ => self.popup_menu_scroll += 1,
             },
-
+            #[cfg(feature = "update-check")]
             Some(Popup::UpdateCheckConsentPrompt) | Some(Popup::UpdateBeginPrompt) => {
                 match self.popup_menu_scroll {
                     _last if self.last_popup_item_selected() => self.popup_menu_scroll = 0,
@@ -2301,7 +2315,7 @@ impl App {
             Some(Popup::DefmtNewElf(_)) => (),
             #[cfg(feature = "defmt")]
             Some(Popup::DefmtRecentElf) => (),
-
+            #[cfg(feature = "update-check")]
             Some(Popup::UpdateCheckConsentPrompt) | Some(Popup::UpdateBeginPrompt) => (),
 
             #[cfg(feature = "self-replace")]
@@ -2427,7 +2441,7 @@ impl App {
             Some(Popup::DefmtNewElf(_)) => (),
             #[cfg(feature = "defmt")]
             Some(Popup::DefmtRecentElf) => (),
-
+            #[cfg(feature = "update-check")]
             Some(Popup::UpdateCheckConsentPrompt) | Some(Popup::UpdateBeginPrompt) => (),
 
             #[cfg(feature = "self-replace")]
@@ -2716,11 +2730,13 @@ impl App {
                 )?;
             }
             Some(Popup::SerialConnectionFailed(_)) => self.dismiss_popup(),
+            #[cfg(feature = "update-check")]
             Some(Popup::UpdateCheckConsentPrompt) => {
                 self.update_check_consent_choice(
                     UpdateCheckConsentPrompt::try_from(self.popup_menu_scroll as u8).unwrap(),
                 )?;
             }
+            #[cfg(feature = "update-check")]
             Some(Popup::UpdateBeginPrompt) => {
                 self.update_begin_choice(
                     UpdateBeginPrompt::try_from(self.popup_menu_scroll as u8).unwrap(),
@@ -3068,7 +3084,9 @@ impl App {
             }
             Popup::IgnoreByName(_) => <IgnorePortByNamePrompt as VariantArray>::VARIANTS.len(),
             Popup::IgnoreByUsb(_, _) => <IgnoreUsbDevicePrompt as VariantArray>::VARIANTS.len(),
+            #[cfg(feature = "update-check")]
             Popup::UpdateBeginPrompt => <UpdateBeginPrompt as VariantArray>::VARIANTS.len(),
+            #[cfg(feature = "update-check")]
             Popup::UpdateCheckConsentPrompt => {
                 <UpdateCheckConsentPrompt as VariantArray>::VARIANTS.len()
             }
@@ -3364,6 +3382,7 @@ impl App {
                 frame.render_widget(&block, area);
                 frame.render_widget(para, block.inner(area));
             }
+            #[cfg(feature = "update-check")]
             Popup::UpdateCheckConsentPrompt => {
                 let mut table_state = TableState::new().with_selected(Some(self.popup_menu_scroll));
 
@@ -3376,6 +3395,7 @@ impl App {
                     &mut table_state,
                 );
             }
+            #[cfg(feature = "update-check")]
             Popup::UpdateBeginPrompt => {
                 let mut table_state = TableState::new().with_selected(Some(self.popup_menu_scroll));
 
@@ -4741,15 +4761,17 @@ impl App {
         frame.render_widget(big_text, vertical_slices[0]);
 
         let dark_gray = Style::new().dark_gray();
-        let green = Style::new().green();
 
         let [_, credit_and_version_area] = vertical![*=1, ==1].areas(frame_area);
 
-        let current_version = Span::styled(format!("v{}", env!("CARGO_PKG_VERSION")), dark_gray);
+        let version = Span::styled(format!("v{}", env!("CARGO_PKG_VERSION")), dark_gray);
+        let version = version.to_line();
 
+        #[cfg(feature = "update-check")]
         let version = if let Some(new) = &self.update_found_version {
+            let green = Style::new().green();
             let meow = Span::styled(format!(" -> v{new}! [U]pdate found!"), green);
-            Line::from_iter([current_version, meow])
+            Line::from_iter(version.into_iter().chain(core::iter::once(meow)))
         } else {
             Line::from(current_version)
         };
@@ -5015,9 +5037,11 @@ impl App {
             | Popup::AttemptReconnectPrompt
             | Popup::DisconnectPrompt
             | Popup::IgnoreByName(_)
-            | Popup::IgnoreByUsb(_, _)
-            | Popup::UpdateBeginPrompt
-            | Popup::UpdateCheckConsentPrompt => self.popup_menu_scroll = 0,
+            | Popup::IgnoreByUsb(_, _) => self.popup_menu_scroll = 0,
+            #[cfg(feature = "update-check")]
+            Popup::UpdateBeginPrompt | Popup::UpdateCheckConsentPrompt => {
+                self.popup_menu_scroll = 0
+            }
 
             #[cfg(feature = "defmt")]
             Popup::DefmtRecentElf => {
@@ -5222,6 +5246,7 @@ impl App {
     }
     fn first_time_setup(&mut self) {
         if !self.settings.updates.user_dismissed_prompt {
+            #[cfg(feature = "update-check")]
             self.show_popup(Popup::UpdateCheckConsentPrompt);
         }
     }

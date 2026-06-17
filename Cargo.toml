@@ -24,8 +24,10 @@ defmt-watch = ["defmt", "dep:notify"]
 macros = []
 # Application will default to placing configs/logs adjacent to executable
 portable = []
+# Allow checking the crate's online repository for new Releases
+update-check = []
 # defaults to Lite.
-self-replace = ["dep:self-replace", "portable", "yap-lite"]
+self-replace = ["dep:self-replace", "portable", "yap-lite", "update-check"]
 
 # GitHub release flavors
 # Full should have _all_ features enabled and available
@@ -89,7 +91,7 @@ ratatui-explorer = { version = "0.3.0", optional = true }
 ratatui-macros = "0.7.0"
 ratatui-widgets = "0.3.0"
 regex = "1.11.1"
-reqwest = "0.12.22" # TODO make optional
+reqwest = { version = "0.12.22", optional = true }
 # regex-lite = "0.1.6"
 rolling-file = "0.2.0"
 self-replace = { version = "1.5.0", optional = true }
@@ -124,14 +126,14 @@ virtual-serialport = "0.1.3"
 self_update = { version = "0.42.0", features = [
     "compression-zip-bzip2",
     "compression-zip-deflate",
-] }
+], optional = true }
 windows-sys = { version = "0.59", features = [
     "Win32_Foundation",
     "Win32_System_Console",
 ] }
 
 [target.'cfg(unix)'.dependencies]
-self_update = { version = "0.42.0", features = ["compression-flate2"] }
+self_update = { version = "0.42.0", features = ["compression-flate2"], optional = true }
 
 # For Raspi 1B via `cross`
 [target.arm-unknown-linux-gnueabihf.dependencies]
