@@ -4773,7 +4773,7 @@ impl App {
             let meow = Span::styled(format!(" -> v{new}! [U]pdate found!"), green);
             Line::from_iter(version.into_iter().chain(core::iter::once(meow)))
         } else {
-            Line::from(version)
+            version
         };
 
         let me_in_current_year = "nullstalgia, 2025".dark_gray();

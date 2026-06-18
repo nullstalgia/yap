@@ -191,8 +191,8 @@ impl Macros {
 
         let categories: BTreeSet<&str> = self
             .all
-            .iter()
-            .filter_map(|(tag, _)| tag.category.as_deref())
+            .keys()
+            .filter_map(|tag| tag.category.as_deref())
             .collect();
 
         no_category.chain(categories)
