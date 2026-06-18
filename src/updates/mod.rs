@@ -335,6 +335,7 @@ pub enum UpdateError {
     HandleDropped,
     #[error("error getting update information")]
     SelfUpdate(#[from] self_update::errors::Error),
+    #[cfg(feature = "self-replace")]
     #[error("reqwest web error")]
     Reqwest(#[from] reqwest::Error),
     #[error("error getting response contents")]

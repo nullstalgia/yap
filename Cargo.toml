@@ -25,9 +25,9 @@ macros = []
 # Application will default to placing configs/logs adjacent to executable
 portable = []
 # Allow checking the crate's online repository for new Releases
-update-check = []
+update-check = ["dep:self_update"]
 # defaults to Lite.
-self-replace = ["dep:self-replace", "portable", "yap-lite", "update-check"]
+self-replace = ["dep:self-replace", "dep:reqwest", "portable", "yap-lite", "update-check"]
 
 # GitHub release flavors
 # Full should have _all_ features enabled and available
